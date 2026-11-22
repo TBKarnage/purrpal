@@ -1,0 +1,610 @@
+import { useEffect, useRef, useState } from 'react'
+import { getCatMood, getPriorityNeed } from '../state/timeDecay'
+import {
+  RUG_STYLE_OPTIONS,
+  type FoodItem,
+  type GameState,
+  type RoomMess,
+} from '../types/game'
+import { CatSprite, type CatAnimationMode } from './CatSprite'
+import {
+  BroomIcon,
+  BrushIcon,
+  FoodIcon,
+  HeartIcon,
+  MessSprite,
+  SparklesIcon,
+} from './Icons'
+
+export type CleanToolMode = 'none' | 'sweep' | 'brush'
+
+interface FloatingParticle {
+  id: number
+  x: number
+  y: number
+  kind: 'heart' | 'sparkle' | 'crumb' | 'bubble' | 'reward'
+  text?: string
+}
+
+interface LivingRoomProps {
+  gameState: GameState
+  eatingFood: FoodItem['id'] | null
+  headShakeActive?: boolean
+  headShakeKey?: number
+  speechBubble?: string | null
+  cleanTool: CleanToolMode
+  showCleanTray: boolean
+  showFeedTray?: boolean
+  onPetKitty: () => void
+  onCleanMess: (mess: RoomMess) => void
+  onBrushKitty: () => void
+  onSelectCleanTool: (tool: CleanToolMode) => void
+  onCloseCleanTray: () => void
+  onDismissTutorial: () => void
+}
+
+export function LivingRoom({
+  gameState,
+  eatingFood,
+  headShakeActive = false,
+  headShakeKey = 0,
+  speechBubble = null,
+  cleanTool,
+  showCleanTray,
+  showFeedTray = false,
+  onPetKitty,
+  onCleanMess,
+  onBrushKitty,
+  onSelectCleanTool,
+  onCloseCleanTray,
+  onDismissTutorial,
+}: LivingRoomProps) {
+  const { cat, stats, room, tutorialStep = 3 } = gameState
+  const mood = getCatMood(stats)
+  const priorityNeed = getPriorityNeed(stats)
+
+  const [particles, setParticles] = useState<FloatingParticle[]>([])
+  const [pettingActive, setPettingActive] = useState(false)
+  const [brushingActive, setBrushingActive] = useState(false)
+  const [zoomieActive, setZoomieActive] = useState(false)
+  const particleIdRef = useRef(1)
+  const lastBrushTickRef = useRef(0)
+  const animTimerRef = useRef<number | null>(null)
+  const roomRef = useRef<HTMLDivElement | null>(null)
+
+  const spawnParticle = (
+    x: number,
+    y: number,
+    kind: FloatingParticle['kind'],
+    text?: string,
+  ) => {
+    const id = particleIdRef.current++
+    setParticles((prev) => [...prev.slice(-16), { id, x, y, kind, text }])
+    window.setTimeout(() => {
+      setParticles((prev) => prev.filter((p) => p.id !== id))
+    }, 1150)
+  }
+
+  // Spawn eating crumbs while eatingFood is active
+  useEffect(() => {
+    if (!eatingFood) return
+    const timer = window.setInterval(() => {
+      const rx = 44 + Math.random() * 12
+      const ry = 54 + Math.random() * 10
+      spawnParticle(rx, ry, 'crumb')
+    }, 240)
+    return () => window.clearInterval(timer)
+  }, [eatingFood])
+
+  // Periodic playful zoomies for Teen & Adult cats when thriving
+  useEffect(() => {
+    if (cat.stage !== 'teen' && cat.stage !== 'adult') return
+    const interval = window.setInterval(() => {
+      if (mood === 'thriving' && !eatingFood && !headShakeActive && cleanTool === 'none') {
+        setZoomieActive(true)
+        window.setTimeout(() => setZoomieActive(false), 2300)
+      }
+    }, 18_000)
+    return () => window.clearInterval(interval)
+  }, [cat.stage, mood, eatingFood, headShakeActive, cleanTool])
+
+  // Periodic floating hearts when thriving
+  useEffect(() => {
+    if (mood !== 'thriving') return
+    const interval = window.setInterval(() => {
+      spawnParticle(46 + Math.random() * 8, 42 + Math.random() * 6, 'heart')
+    }, 5500)
+    return () => window.clearInterval(interval)
+  }, [mood])
+
+  const getRelativePercent = (clientX: number, clientY: number) => {
+    const rect = roomRef.current?.getBoundingClientRect()
+    if (!rect || rect.width === 0 || rect.height === 0) {
+      return { x: 50, y: 55 }
+    }
+    return {
+      x: ((clientX - rect.left) / rect.width) * 100,
+      y: ((clientY - rect.top) / rect.height) * 100,
+    }
+  }
+
+  const triggerKittyAnimation = (kind: 'petting' | 'brushing') => {
+    if (animTimerRef.current !== null) window.clearTimeout(animTimerRef.current)
+    if (kind === 'petting') {
+      setPettingActive(true)
+      animTimerRef.current = window.setTimeout(() => setPettingActive(false), 750)
+    } else {
+      setBrushingActive(true)
+      animTimerRef.current = window.setTimeout(() => setBrushingActive(false), 850)
+    }
+  }
+
+  const handleKittyPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const pos = getRelativePercent(e.clientX, e.clientY)
+    if (cleanTool === 'brush') {
+      triggerKittyAnimation('brushing')
+      spawnParticle(pos.x, pos.y, 'sparkle')
+      spawnParticle(
+        pos.x + 5,
+        pos.y - 4,
+        'reward',
+        stats.cleanliness >= 100 ? 'All shiny!' : '+Clean!',
+      )
+      onBrushKitty()
+      lastBrushTickRef.current = Date.now()
+    } else {
+      triggerKittyAnimation('petting')
+      spawnParticle(pos.x, pos.y, 'heart')
+      spawnParticle(pos.x - 4, pos.y - 5, 'heart')
+      onPetKitty()
+    }
+  }
+
+  const handleKittyPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (cleanTool !== 'brush' || e.buttons === 0) return
+    const now = Date.now()
+    if (now - lastBrushTickRef.current < 450) return
+    lastBrushTickRef.current = now
+    const pos = getRelativePercent(e.clientX, e.clientY)
+    triggerKittyAnimation('brushing')
+    spawnParticle(pos.x, pos.y, 'sparkle')
+    onBrushKitty()
+  }
+
+  const handleMessTap = (mess: RoomMess) => {
+    spawnParticle(mess.x, mess.y - 4, 'bubble')
+    spawnParticle(mess.x + 4, mess.y - 8, 'sparkle')
+    spawnParticle(mess.x, mess.y - 10, 'reward', '+5 Coins')
+    onCleanMess(mess)
+  }
+
+  const activeAnim: CatAnimationMode = headShakeActive
+    ? 'headShake'
+    : eatingFood
+      ? 'eating'
+      : brushingActive
+        ? 'brushing'
+        : pettingActive
+          ? 'petting'
+          : zoomieActive
+            ? 'zoomie'
+            : 'idle'
+
+  const hasCatTree = room.equippedDecor.includes('cat_tree')
+  const hasWindowCushion = room.equippedDecor.includes('window_cushion')
+  const hasFairyLights = room.equippedDecor.includes('fairy_lights')
+  const hasStarryRug = room.equippedDecor.includes('starry_rug')
+  const rugPalette =
+    RUG_STYLE_OPTIONS.find((r) => r.id === (room.rugStyle ?? 'cream')) ??
+    RUG_STYLE_OPTIONS[0]
+
+  const tutorialMessages: Record<number, { title: string; icon: 'feed' | 'pet' | 'play' }> = {
+    0: { title: 'Tap Feed below!', icon: 'feed' },
+    1: { title: `Tap ${cat.name} to Pet!`, icon: 'pet' },
+    2: { title: 'Tap Play for Games!', icon: 'play' },
+  }
+  const activeTutorial = tutorialStep < 3 ? tutorialMessages[tutorialStep] : null
+
+  return (
+    <section
+      id="living-room"
+      ref={roomRef}
+      className="relative flex-1 w-full overflow-hidden flex flex-col justify-end"
+    >
+      {/* Cozy Illustrated Living Room SVG Backdrop */}
+      <svg
+        viewBox="0 0 1000 640"
+        preserveAspectRatio="xMidYMid slice"
+        className="absolute inset-0 w-full h-full pointer-events-none"
+        aria-hidden="true"
+      >
+        <defs>
+          <linearGradient id="wallGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#FFF9EC" />
+            <stop offset="100%" stopColor="#FBEBD0" />
+          </linearGradient>
+          <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#A5E3FF" />
+            <stop offset="100%" stopColor="#E0F7FF" />
+          </linearGradient>
+          <linearGradient id="floorGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#E6BE8A" />
+            <stop offset="100%" stopColor="#D4A36A" />
+          </linearGradient>
+          <linearGradient id="sunbeamGrad" x1="0" y1="0" x2="0.4" y2="1">
+            <stop offset="0%" stopColor="#FFFDF2" stopOpacity="0.42" />
+            <stop offset="100%" stopColor="#FFFDF2" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {/* Cream Wall */}
+        <rect x="0" y="0" width="1000" height="410" fill="url(#wallGrad)" />
+
+        {/* Subtle warm wainscoting panels */}
+        <rect x="0" y="295" width="1000" height="115" fill="#F8E2C2" />
+        <line x1="0" y1="295" x2="1000" y2="295" stroke="#E4C49B" strokeWidth="6" />
+        <line x1="0" y1="406" x2="1000" y2="406" stroke="#C89B67" strokeWidth="8" />
+
+        {/* Sunlit Arched Window */}
+        <g transform="translate(360, 42)">
+          <path
+            d="M 20 235 L 20 110 A 120 110 0 0 1 260 110 L 260 235 Z"
+            fill="url(#skyGrad)"
+            stroke="#C78F57"
+            strokeWidth="12"
+            strokeLinejoin="round"
+          />
+          {/* Drifting clouds */}
+          <g className="animate-cloud-drift" opacity="0.92">
+            <ellipse cx="98" cy="115" rx="34" ry="18" fill="#FFFFFF" />
+            <ellipse cx="122" cy="108" rx="26" ry="16" fill="#FFFFFF" />
+            <ellipse cx="186" cy="158" rx="30" ry="15" fill="#FFFFFF" />
+            <ellipse cx="208" cy="152" rx="22" ry="13" fill="#FFFFFF" />
+          </g>
+          {/* Warm Sun */}
+          <circle cx="212" cy="82" r="24" fill="#FDE047" />
+          {/* Window panes */}
+          <line x1="140" y1="2" x2="140" y2="235" stroke="#C78F57" strokeWidth="8" />
+          <line x1="20" y1="138" x2="260" y2="138" stroke="#C78F57" strokeWidth="8" />
+          {/* Window sill */}
+          <rect x="4" y="232" width="272" height="22" rx="10" fill="#D49A60" stroke="#9E6A3A" strokeWidth="4" />
+
+          {/* Unlockable Decor: Cozy Window Cushion (Lv 8) */}
+          {hasWindowCushion && (
+            <g data-decor="window_cushion">
+              <rect
+                x="44"
+                y="206"
+                width="192"
+                height="32"
+                rx="16"
+                fill="#FDA4AF"
+                stroke="#5B3A29"
+                strokeWidth="4.5"
+              />
+              <path
+                d="M 64 218 Q 140 230 216 218"
+                fill="none"
+                stroke="#FFE4E6"
+                strokeWidth="4.5"
+                strokeLinecap="round"
+              />
+              <circle cx="58" cy="222" r="5" fill="#FDE047" />
+              <circle cx="222" cy="222" r="5" fill="#FDE047" />
+            </g>
+          )}
+        </g>
+
+        {/* Unlockable Decor: Warm Fairy Lights (Lv 8) */}
+        {hasFairyLights && (
+          <g data-decor="fairy_lights">
+            <path
+              d="M 290 74 Q 500 132 710 74"
+              fill="none"
+              stroke="#7D563E"
+              strokeWidth="4"
+              strokeLinecap="round"
+            />
+            {[
+              [345, 92, '#FDE047'],
+              [412, 106, '#FDA4AF'],
+              [480, 112, '#7DD3FC'],
+              [548, 110, '#FDE047'],
+              [616, 102, '#A7F3D0'],
+              [672, 86, '#FBCFE8'],
+            ].map(([lx, ly, col], idx) => (
+              <g key={idx}>
+                <circle cx={Number(lx)} cy={Number(ly)} r="15" fill={String(col)} opacity="0.28" />
+                <circle cx={Number(lx)} cy={Number(ly)} r="7.5" fill={String(col)} stroke="#5B3A29" strokeWidth="2.4" />
+              </g>
+            ))}
+          </g>
+        )}
+
+        {/* Soft Sunbeams onto the floor */}
+        <polygon points="380,295 620,295 750,640 240,640" fill="url(#sunbeamGrad)" />
+
+        {/* Cozy Framed Picture on right wall */}
+        <g transform="translate(760, 108)">
+          <rect x="0" y="0" width="110" height="86" rx="14" fill="#FFFDF8" stroke="#C78F57" strokeWidth="7" />
+          <circle cx="55" cy="46" r="18" fill="#FECDD3" />
+          <circle cx="42" cy="34" r="7" fill="#FB7185" />
+          <circle cx="55" cy="28" r="7" fill="#FB7185" />
+          <circle cx="68" cy="34" r="7" fill="#FB7185" />
+        </g>
+
+        {/* Cozy Potted Plant on far right */}
+        <g transform="translate(835, 290)">
+          <path d="M 38 78 C 12 45 14 14 38 4 C 48 28 46 56 44 78 Z" fill="#52B788" stroke="#366E54" strokeWidth="4" />
+          <path d="M 46 78 C 68 42 78 24 94 28 C 82 52 64 68 54 78 Z" fill="#74C69D" stroke="#366E54" strokeWidth="4" />
+          <path d="M 40 76 C 18 68 2 48 8 36 C 24 44 36 60 42 76 Z" fill="#40916C" stroke="#366E54" strokeWidth="4" />
+          <path d="M 18 76 L 76 76 L 68 134 C 66 140 28 140 26 134 Z" fill="#E07A5F" stroke="#5B3A29" strokeWidth="4.5" strokeLinejoin="round" />
+          <rect x="12" y="68" width="70" height="16" rx="6" fill="#F29E86" stroke="#5B3A29" strokeWidth="4.5" />
+        </g>
+
+        {/* Warm Oak Floorboards */}
+        <rect x="0" y="408" width="1000" height="232" fill="url(#floorGrad)" />
+        <g stroke="#C69156" strokeWidth="2.5" opacity="0.55">
+          <line x1="0" y1="454" x2="1000" y2="454" />
+          <line x1="0" y1="506" x2="1000" y2="506" />
+          <line x1="0" y1="564" x2="1000" y2="564" />
+          <line x1="180" y1="408" x2="150" y2="454" />
+          <line x1="690" y1="408" x2="720" y2="454" />
+          <line x1="360" y1="454" x2="340" y2="506" />
+          <line x1="820" y1="506" x2="860" y2="564" />
+        </g>
+
+        {/* Unlockable Decor: Cozy Cat Tree (Lv 8) */}
+        {hasCatTree && (
+          <g transform="translate(88, 178)" data-decor="cat_tree">
+            {/* Base */}
+            <rect x="16" y="246" width="166" height="24" rx="11" fill="#E6C39A" stroke="#5B3A29" strokeWidth="5" />
+            {/* Scratching posts */}
+            <rect x="44" y="138" width="28" height="112" fill="#D9A773" stroke="#5B3A29" strokeWidth="5" />
+            <rect x="124" y="72" width="28" height="178" fill="#D9A773" stroke="#5B3A29" strokeWidth="5" />
+            {/* Rope texture */}
+            <g stroke="#B68049" strokeWidth="3">
+              <line x1="46" y1="164" x2="70" y2="164" />
+              <line x1="46" y1="188" x2="70" y2="188" />
+              <line x1="46" y1="212" x2="70" y2="212" />
+              <line x1="126" y1="106" x2="150" y2="106" />
+              <line x1="126" y1="132" x2="150" y2="132" />
+              <line x1="126" y1="158" x2="150" y2="158" />
+              <line x1="126" y1="184" x2="150" y2="184" />
+            </g>
+            {/* Mid perch */}
+            <rect x="10" y="122" width="102" height="24" rx="12" fill="#FFF3D6" stroke="#5B3A29" strokeWidth="5" />
+            {/* Top cozy perch + hanging toy */}
+            <rect x="82" y="52" width="114" height="26" rx="13" fill="#FFF3D6" stroke="#5B3A29" strokeWidth="5" />
+            <line x1="176" y1="78" x2="176" y2="118" stroke="#5B3A29" strokeWidth="3" />
+            <circle cx="176" cy="124" r="11" fill="#FB7185" stroke="#5B3A29" strokeWidth="3.5" />
+          </g>
+        )}
+
+        {/* Center Cozy Rug (Free Cream/Mint/Peach starter rugs OR Starry Rug at Lv 13!) */}
+        {hasStarryRug ? (
+          <g data-decor="starry_rug">
+            <ellipse cx="500" cy="522" rx="255" ry="76" fill="#6366F1" stroke="#4338CA" strokeWidth="7" />
+            <ellipse cx="500" cy="522" rx="224" ry="60" fill="#818CF8" stroke="#C7D2FE" strokeWidth="4" strokeDasharray="12 10" />
+            {/* Twinkling stars on rug */}
+            <circle cx="348" cy="512" r="6" fill="#FEF08A" />
+            <circle cx="406" cy="548" r="5" fill="#FDE047" />
+            <circle cx="640" cy="514" r="6" fill="#FEF08A" />
+            <circle cx="598" cy="552" r="5" fill="#FDE047" />
+            <circle cx="496" cy="482" r="5" fill="#FEF08A" />
+          </g>
+        ) : (
+          <g data-rug-style={rugPalette.id}>
+            <ellipse cx="500" cy="522" rx="242" ry="70" fill={rugPalette.outer} stroke={rugPalette.stroke} strokeWidth="7" />
+            <ellipse cx="500" cy="522" rx="208" ry="54" fill={rugPalette.inner} stroke={rugPalette.stroke} strokeWidth="4" strokeDasharray="10 8" />
+          </g>
+        )}
+      </svg>
+
+      {/* Non-blocking 3-Step Visual Tutorial Pill */}
+      {activeTutorial && (
+        <div
+          id="tutorial-pill"
+          className="absolute top-24 sm:top-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2.5 rounded-full bg-[#FFFDF8]/95 border-[3px] border-[#FB7185] shadow-lg px-4 py-2"
+        >
+          <span className="w-7 h-7 rounded-full bg-[#FB7185] text-white text-sm font-black flex items-center justify-center">
+            {tutorialStep + 1}
+          </span>
+          <span className="text-base font-extrabold text-[#5B3A29]">
+            {activeTutorial.title}
+          </span>
+          <button
+            id="btn-skip-tutorial"
+            type="button"
+            onClick={onDismissTutorial}
+            className="ml-1 text-xs font-extrabold text-[#9A745E] px-2 py-0.5 rounded-full bg-[#F5E6D3]"
+          >
+            Got it
+          </button>
+        </div>
+      )}
+
+      {/* Active Clean Tool Banner */}
+      {cleanTool !== 'none' && (
+        <div
+          id="clean-mode-banner"
+          className="absolute top-24 sm:top-20 left-1/2 -translate-x-1/2 z-20 inline-flex items-center gap-2 rounded-full bg-[#E0F2FE]/95 border-[3px] border-[#38BDF8] shadow-md px-4 py-1.5"
+        >
+          {cleanTool === 'brush' ? (
+            <>
+              <BrushIcon className="w-6 h-6" />
+              <span className="text-sm sm:text-base font-extrabold text-[#075985]">
+                Rub or Tap {cat.name} to Brush!
+              </span>
+            </>
+          ) : (
+            <>
+              <BroomIcon className="w-6 h-6" />
+              <span className="text-sm sm:text-base font-extrabold text-[#075985]">
+                {room.messes.length > 0 ? 'Tap Messes to Sweep!' : 'Sparkling Clean!'}
+              </span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Tappable Floor Messes */}
+      {room.messes.map((mess) => (
+        <button
+          key={mess.id}
+          id={`mess-${mess.id}`}
+          type="button"
+          data-mess-item="true"
+          onClick={() => handleMessTap(mess)}
+          aria-label={`Clean ${mess.type}`}
+          style={{ left: `${mess.x}%`, top: `${mess.y}%` }}
+          className={`cozy-btn absolute z-20 -translate-x-1/2 -translate-y-1/2 w-[72px] h-[72px] rounded-full flex items-center justify-center ${
+            cleanTool === 'sweep'
+              ? 'bg-[#E0F2FE]/80 ring-4 ring-[#38BDF8] animate-glow-ring'
+              : 'bg-transparent hover:bg-[#FFFDF8]/45'
+          }`}
+        >
+          <MessSprite type={mess.type} className="w-14 h-14 drop-shadow" />
+        </button>
+      ))}
+
+      {/* Main Interactive Kitty Stage */}
+      <div
+        className={`relative z-10 flex-1 flex items-end justify-center transition-all duration-300 ${
+          showFeedTray ? 'pb-60 sm:pb-64' : 'pb-28 sm:pb-32'
+        }`}
+      >
+        <div
+          id="kitty-drop-zone"
+          role="button"
+          tabIndex={0}
+          aria-label={cleanTool === 'brush' ? `Brush ${cat.name}` : `Pet ${cat.name}`}
+          onPointerDown={handleKittyPointerDown}
+          onPointerMove={handleKittyPointerMove}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              if (cleanTool === 'brush') {
+                triggerKittyAnimation('brushing')
+                onBrushKitty()
+              } else {
+                triggerKittyAnimation('petting')
+                onPetKitty()
+              }
+            }
+          }}
+          className={`relative cursor-pointer touch-none flex items-center justify-center rounded-full p-2 ${
+            cleanTool === 'brush' ? 'ring-4 ring-[#7DD3FC]/80 bg-[#E0F2FE]/25' : ''
+          } ${tutorialStep === 1 ? 'ring-4 ring-[#FB7185]/70 animate-glow-ring' : ''}`}
+        >
+          {speechBubble && (
+            <div
+              id="kitty-speech-bubble"
+              className="pointer-events-none absolute -top-6 left-1/2 -translate-x-1/2 z-30 whitespace-nowrap rounded-full bg-[#FFFDF8] border-[3px] border-[#F59E0B] shadow-lg px-4 py-1.5 text-base font-black text-[#92400E]"
+            >
+              {speechBubble}
+            </div>
+          )}
+
+          <CatSprite
+            coat={cat.coat}
+            stage={cat.stage}
+            mood={mood}
+            animation={activeAnim}
+            headShakeKey={headShakeKey}
+            equippedAccessory={cat.equippedAccessory}
+            style={cat.style}
+            priorityNeed={priorityNeed}
+            className="w-56 h-56 sm:w-64 sm:h-64 md:w-72 md:h-72"
+          />
+
+          {/* Food Bowl Appears During 1.5s Eating Animation */}
+          {eatingFood && (
+            <div
+              id="eating-food-bowl"
+              className="absolute -bottom-1 left-1/2 -translate-x-1/2 z-20 animate-gentle-pulse pointer-events-none"
+            >
+              <FoodIcon foodId={eatingFood} className="w-16 h-16 drop-shadow-md" />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Floating Hearts / Sparkles / Crumbs / Reward Particles */}
+      <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden">
+        {particles.map((pt) => (
+          <div
+            key={pt.id}
+            style={{ left: `${pt.x}%`, top: `${pt.y}%` }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 animate-float-up"
+          >
+            {pt.kind === 'heart' && <HeartIcon className="w-8 h-8" />}
+            {pt.kind === 'sparkle' && <SparklesIcon className="w-8 h-8" />}
+            {pt.kind === 'bubble' && (
+              <div className="w-9 h-9 rounded-full bg-[#BAE6FD]/80 border-[2.5px] border-[#38BDF8] shadow-inner" />
+            )}
+            {pt.kind === 'crumb' && (
+              <div className="w-3.5 h-3.5 rounded-full bg-[#D97706] border border-[#5B3A29]" />
+            )}
+            {pt.kind === 'reward' && (
+              <span className="px-2.5 py-1 rounded-full bg-[#FFFDF8] border-2 border-[#F59E0B] text-xs font-black text-[#92400E] shadow">
+                {pt.text}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Clean Tools Bottom Bar (Sweep / Brush) */}
+      {showCleanTray && (
+        <div
+          id="clean-drawer"
+          className="absolute bottom-[106px] sm:bottom-[114px] left-1/2 -translate-x-1/2 z-30 w-full max-w-md px-3 sm:px-5"
+        >
+          <div className="rounded-[1.75rem] bg-[#FFFDF8]/96 border-[3px] border-[#38BDF8] shadow-[0_12px_28px_rgba(91,58,41,0.18)] p-3 flex items-center gap-2.5">
+            <button
+              id="btn-clean-sweep"
+              type="button"
+              onClick={() =>
+                onSelectCleanTool(cleanTool === 'sweep' ? 'none' : 'sweep')
+              }
+              className={`cozy-btn flex-1 min-h-[66px] rounded-2xl border-[3px] flex items-center justify-center gap-2 font-black text-base ${
+                cleanTool === 'sweep'
+                  ? 'bg-[#BAE6FD] border-[#0284C7] text-[#0C4A6E]'
+                  : 'bg-[#F0F9FF] border-[#7DD3FC] text-[#075985]'
+              }`}
+            >
+              <BroomIcon className="w-8 h-8" />
+              <span>Sweep ({room.messes.length})</span>
+            </button>
+
+            <button
+              id="btn-clean-brush"
+              type="button"
+              onClick={() =>
+                onSelectCleanTool(cleanTool === 'brush' ? 'none' : 'brush')
+              }
+              className={`cozy-btn flex-1 min-h-[66px] rounded-2xl border-[3px] flex items-center justify-center gap-2 font-black text-base ${
+                cleanTool === 'brush'
+                  ? 'bg-[#FBCFE8] border-[#DB2777] text-[#831843]'
+                  : 'bg-[#FDF2F8] border-[#F9A8D4] text-[#9D174D]'
+              }`}
+            >
+              <BrushIcon className="w-8 h-8" />
+              <span>Brush</span>
+            </button>
+
+            <button
+              id="btn-close-clean"
+              type="button"
+              onClick={onCloseCleanTray}
+              className="cozy-btn min-h-[66px] px-3.5 rounded-2xl bg-[#FFF4E0] border-[3px] border-[#E7C9A4] text-sm font-black text-[#5B3A29]"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}

@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFF2D6" />
+      <stop offset="100%" stop-color="#FFDCA8" />
+    </linearGradient>
+    <radialGradient id="sunGlow" cx="50%" cy="38%" r="55%">
+      <stop offset="0%" stop-color="#FFFDF8" stop-opacity="0.95" />
+      <stop offset="100%" stop-color="#FFF2D6" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="furGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F9AE65" />
+      <stop offset="100%" stop-color="#EA893D" />
+    </linearGradient>
+  </defs>
+
+  <!-- Cozy rounded warm backdrop -->
+  <rect width="512" height="512" fill="url(#bgGrad)" />
+  <circle cx="256" cy="220" r="230" fill="url(#sunGlow)" />
+
+  <!-- Subtle sparkles -->
+  <g fill="#FF928B" opacity="0.85">
+    <path d="M98 112 l7 16 16 7 -16 7 -7 16 -7 -16 -16 -7 16 -7z" />
+    <path d="M416 96 l6 13 13 6 -13 6 -6 13 -6 -13 -13 -6 13 -6z" />
+  </g>
+  <circle cx="88" cy="396" r="10" fill="#7CC6FE" opacity="0.65" />
+  <circle cx="428" cy="376" r="12" fill="#8CD790" opacity="0.65" />
+
+  <!-- Soft shadow beneath kitty -->
+  <ellipse cx="256" cy="436" rx="125" ry="26" fill="#D9A36A" opacity="0.35" />
+
+  <!-- Kitty body peek -->
+  <path d="M150 434 C150 356 190 326 256 326 C322 326 362 356 362 434 Z" fill="url(#furGrad)" stroke="#704020" stroke-width="11" stroke-linejoin="round" />
+  <ellipse cx="256" cy="404" rx="56" ry="44" fill="#FFF6E8" />
+
+  <!-- Cute coral bell collar -->
+  <path d="M174 342 Q256 376 338 342" fill="none" stroke="#FF758F" stroke-width="20" stroke-linecap="round" />
+  <circle cx="256" cy="368" r="18" fill="#FFD166" stroke="#704020" stroke-width="7" />
+  <circle cx="256" cy="371" r="4" fill="#704020" />
+
+  <!-- Ears -->
+  <path d="M126 230 L114 96 C112 78 130 68 146 78 L224 134 Z" fill="url(#furGrad)" stroke="#704020" stroke-width="11" stroke-linejoin="round" />
+  <path d="M138 202 L131 114 L196 154 Z" fill="#FFB8C2" />
+
+  <path d="M386 230 L398 96 C400 78 382 68 366 78 L288 134 Z" fill="url(#furGrad)" stroke="#704020" stroke-width="11" stroke-linejoin="round" />
+  <path d="M374 202 L381 114 L316 154 Z" fill="#FFB8C2" />
+
+  <!-- Big adorable kitten head -->
+  <ellipse cx="256" cy="242" rx="146" ry="122" fill="url(#furGrad)" stroke="#704020" stroke-width="11" />
+
+  <!-- Forehead tabby stripes -->
+  <path d="M256 124 L256 168" stroke="#C86622" stroke-width="14" stroke-linecap="round" />
+  <path d="M222 132 L230 166" stroke="#C86622" stroke-width="12" stroke-linecap="round" />
+  <path d="M290 132 L282 166" stroke="#C86622" stroke-width="12" stroke-linecap="round" />
+
+  <!-- Cheek stripes -->
+  <path d="M122 252 L152 258 M126 276 L154 276" stroke="#C86622" stroke-width="9" stroke-linecap="round" />
+  <path d="M390 252 L360 258 M386 276 L358 276" stroke="#C86622" stroke-width="9" stroke-linecap="round" />
+
+  <!-- Cream muzzle -->
+  <ellipse cx="256" cy="288" rx="68" ry="44" fill="#FFF6E8" />
+
+  <!-- Big sparkling eyes -->
+  <g>
+    <ellipse cx="196" cy="238" rx="26" ry="30" fill="#3B2418" />
+    <circle cx="187" cy="226" r="10" fill="#FFFFFF" />
+    <circle cx="206" cy="248" r="5" fill="#FFFFFF" />
+
+    <ellipse cx="316" cy="238" rx="26" ry="30" fill="#3B2418" />
+    <circle cx="307" cy="226" r="10" fill="#FFFFFF" />
+    <circle cx="326" cy="248" r="5" fill="#FFFFFF" />
+  </g>
+
+  <!-- Rosy blush -->
+  <ellipse cx="158" cy="276" rx="22" ry="13" fill="#FF9AA2" opacity="0.65" />
+  <ellipse cx="354" cy="276" rx="22" ry="13" fill="#FF9AA2" opacity="0.65" />
+
+  <!-- Cute pink nose and smile -->
+  <path d="M244 268 Q256 262 268 268 L256 282 Z" fill="#FF7E96" stroke="#704020" stroke-width="4" stroke-linejoin="round" />
+  <path d="M256 282 Q242 302 224 292 M256 282 Q270 302 288 292" fill="none" stroke="#704020" stroke-width="8" stroke-linecap="round" />
+
+  <!-- Tiny paws resting in front -->
+  <ellipse cx="198" cy="422" rx="34" ry="26" fill="#FFF6E8" stroke="#704020" stroke-width="9" />
+  <ellipse cx="314" cy="422" rx="34" ry="26" fill="#FFF6E8" stroke="#704020" stroke-width="9" />
+</svg>
