@@ -1,4 +1,10 @@
-import type { CoatStyle, GameState, MessType, RoomMess } from '../types/game'
+import type {
+  CoatStyle,
+  GameState,
+  HideSeekDifficulty,
+  MessType,
+  RoomMess,
+} from '../types/game'
 import {
   getUnlockedAccessoriesForLevel,
   getUnlockedDecorForLevel,
@@ -161,6 +167,18 @@ export function validateAndNormalizeGameState(raw: unknown): GameState | null {
       ? Math.max(0, Math.floor(raw.feedsSinceMess))
       : 0
 
+  const validDiffs = new Set<HideSeekDifficulty>(['easy', 'medium', 'hard'])
+  const hideSeekBeaten = Array.isArray(raw.hideSeekBeaten)
+    ? Array.from(
+        new Set(
+          raw.hideSeekBeaten.filter(
+            (d): d is HideSeekDifficulty =>
+              typeof d === 'string' && validDiffs.has(d as HideSeekDifficulty),
+          ),
+        ),
+      )
+    : []
+
   return {
     schemaVersion: 1,
     createdAt,
@@ -204,6 +222,7 @@ export function validateAndNormalizeGameState(raw: unknown): GameState | null {
     },
     tutorialStep,
     feedsSinceMess,
+    hideSeekBeaten,
   }
 }
 

@@ -468,6 +468,43 @@ body,
   animation: gentle-pulse 2s ease-in-out infinite;
 }
 
+@keyframes tiny-hint-shake {
+  0%, 100% {
+    transform: translateX(0px) rotate(0deg);
+  }
+  20% {
+    transform: translateX(-2.5px) rotate(-1.6deg);
+  }
+  45% {
+    transform: translateX(2.5px) rotate(1.6deg);
+  }
+  70% {
+    transform: translateX(-1.5px) rotate(-1deg);
+  }
+  88% {
+    transform: translateX(1.5px) rotate(1deg);
+  }
+}
+
+@keyframes treat-toss {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 60px) scale(0.6) rotate(-25deg);
+  }
+  40% {
+    opacity: 1;
+    transform: translate(-50%, -65px) scale(1.15) rotate(140deg);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(-50%, 4px) scale(0.95) rotate(340deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0px) scale(1) rotate(360deg);
+  }
+}
+
 .animate-plant-wiggle {
   animation: plant-wiggle 0.9s ease-in-out infinite;
 }
@@ -482,4 +519,12 @@ body,
 
 .animate-tear-shimmer {
   animation: tear-shimmer 2.2s ease-in-out infinite;
+}
+
+.animate-tiny-hint-shake {
+  animation: tiny-hint-shake 0.65s ease-in-out 1;
+}
+
+.animate-treat-toss {
+  animation: treat-toss 0.72s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }

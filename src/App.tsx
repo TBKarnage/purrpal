@@ -10,10 +10,11 @@ import { ParentCornerModal } from './components/ParentCornerModal'
 import { StatusHud } from './components/StatusHud'
 import { BubblePop } from './minigames/BubblePop'
 import { CatchTreats } from './minigames/CatchTreats'
+import { HideAndSeek } from './minigames/HideAndSeek'
 import { LaserChase } from './minigames/LaserChase'
 import { MiniGameHub } from './minigames/MiniGameHub'
 import { useGameState } from './state/useGameState'
-import type { FoodItem, MiniGameId, RoomMess } from './types/game'
+import type { FoodItem, HideSeekDifficulty, MiniGameId, RoomMess } from './types/game'
 
 const PET_REWARD_COOLDOWN_MS = 2500
 
@@ -62,9 +63,16 @@ export function App() {
   }, [pendingLevelUp, activeMiniGame])
 
   const handleMiniGameFinish = useCallback(
-    (gameId: MiniGameId, score: number) => {
+    (
+      gameId: MiniGameId,
+      score: number,
+      hideSeekDifficulty?: HideSeekDifficulty,
+    ) => {
       soundEngine.playLevelUp()
-      dispatch({ type: 'COMPLETE_MINIGAME', gameId, score }, true)
+      dispatch(
+        { type: 'COMPLETE_MINIGAME', gameId, score, hideSeekDifficulty },
+        true,
+      )
     },
     [dispatch],
   )
@@ -264,6 +272,28 @@ export function App() {
       )}
 
       {/* Active Full-Screen Mini-Games */}
+      {activeMiniGame === 'hide_seek' && (
+        <HideAndSeek
+          catName={gameState.cat.name}
+          coat={gameState.cat.coat}
+          stage={gameState.cat.stage}
+          equippedAccessory={gameState.cat.equippedAccessory}
+          catStyle={gameState.cat.style}
+          beatenDifficulties={gameState.hideSeekBeaten ?? []}
+          onCatchSound={() => soundEngine.playCatch()}
+          onCrunchSound={() => soundEngine.playCrunch()}
+          onMeowSound={() => soundEngine.playMeow(gameState.cat.stage)}
+          onButtonSound={() => soundEngine.playButton()}
+          onFinish={(score, difficulty) =>
+            handleMiniGameFinish('hide_seek', score, difficulty)
+          }
+          onExit={() => {
+            soundEngine.playButton()
+            setActiveMiniGame(null)
+          }}
+        />
+      )}
+
       {activeMiniGame === 'laser' && (
         <LaserChase
           catName={gameState.cat.name}

@@ -3,6 +3,8 @@ import { KITTY_NAME_POOL, pickRandomCatNames } from '../../types/game'
 import {
   applyXpGain,
   createInitialGameState,
+  isHideSeekDifficultyUnlocked,
+  nextHintDelayMs,
   reduceGameState,
   stageForLevel,
   xpRequiredForLevel,
@@ -263,4 +265,68 @@ describe('PurrPal Save State Engine & Cozy Offline Catch-Up', () => {
     expect(restored?.cat.style?.head).toBe('crown')
     expect(restored?.room.rugStyle).toBe('mint')
   })
+
+  it('tracks Hide & Seek difficulty progression, persistence, and 50-60s hint timing', () => {
+    const start = createInitialGameState('Mochi', 'gray', 30_000)
+    expect(start.hideSeekBeaten ?? []).toEqual([])
+    expect(isHideSeekDifficultyUnlocked(start.hideSeekBeaten, 'easy')).toBe(true)
+    expect(isHideSeekDifficultyUnlocked(start.hideSeekBeaten, 'medium')).toBe(false)
+    expect(isHideSeekDifficultyUnlocked(start.hideSeekBeaten, 'hard')).toBe(false)
+
+    // Beating Easy unlocks Medium, keeps Hard locked
+    const afterEasy = reduceGameState(start, {
+      type: 'COMPLETE_MINIGAME',
+      gameId: 'hide_seek',
+      score: 10,
+      hideSeekDifficulty: 'easy',
+      now: 35_000,
+    }).state
+    expect(afterEasy.hideSeekBeaten).toEqual(['easy'])
+    expect(isHideSeekDifficultyUnlocked(afterEasy.hideSeekBeaten, 'medium')).toBe(true)
+    expect(isHideSeekDifficultyUnlocked(afterEasy.hideSeekBeaten, 'hard')).toBe(false)
+
+    // Re-beating Easy does not duplicate entries
+    const afterEasyAgain = reduceGameState(afterEasy, {
+      type: 'COMPLETE_MINIGAME',
+      gameId: 'hide_seek',
+      score: 9,
+      hideSeekDifficulty: 'easy',
+      now: 36_000,
+    }).state
+    expect(afterEasyAgain.hideSeekBeaten).toEqual(['easy'])
+
+    // Beating Medium unlocks Hard
+    const afterMedium = reduceGameState(afterEasyAgain, {
+      type: 'COMPLETE_MINIGAME',
+      gameId: 'hide_seek',
+      score: 14,
+      hideSeekDifficulty: 'medium',
+      now: 40_000,
+    }).state
+    expect(afterMedium.hideSeekBeaten).toEqual(['easy', 'medium'])
+    expect(isHideSeekDifficultyUnlocked(afterMedium.hideSeekBeaten, 'hard')).toBe(true)
+
+    // Beating Hard records all three
+    const afterHard = reduceGameState(afterMedium, {
+      type: 'COMPLETE_MINIGAME',
+      gameId: 'hide_seek',
+      score: 18,
+      hideSeekDifficulty: 'hard',
+      now: 45_000,
+    }).state
+    expect(afterHard.hideSeekBeaten).toEqual(['easy', 'medium', 'hard'])
+
+    // Round-trip save code & validation preserve hideSeekBeaten
+    const restored = decodeSaveCode(encodeSaveCode(afterMedium))
+    expect(restored?.hideSeekBeaten).toEqual(['easy', 'medium'])
+    expect(isHideSeekDifficultyUnlocked(restored?.hideSeekBeaten, 'hard')).toBe(true)
+
+    // Hint shake delay always falls strictly between 50s and 60s
+    for (let i = 0; i < 50; i += 1) {
+      const delay = nextHintDelayMs()
+      expect(delay).toBeGreaterThanOrEqual(50_000)
+      expect(delay).toBeLessThanOrEqual(60_000)
+    }
+  })
 })
+

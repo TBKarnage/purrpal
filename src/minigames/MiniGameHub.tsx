@@ -47,8 +47,8 @@ export function MiniGameHub({
           </button>
         </div>
 
-        {/* 3 Chunky Game Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        {/* 4 Chunky Game Cards (2x2 on desktop/tablet) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           {MINIGAME_CATALOG.map((game) => {
             const unlocked =
               settings.unlockAllMiniGames || cat.level >= game.unlockLevel
@@ -103,13 +103,94 @@ export function MiniGameHub({
 }
 
 function GameArt({ id }: { id: MiniGameId }) {
+  if (id === 'hide_seek') {
+    return (
+      <svg viewBox="0 0 64 64" className="w-16 h-16" aria-hidden="true">
+        {/* Cozy pastel backdrop */}
+        <circle cx="32" cy="32" r="26" fill="#DCFCE7" />
+        {/* Peeking kitty ears & eyes */}
+        <polygon points="20,30 24,16 31,26" fill="#FDBA74" stroke="#9A3412" strokeWidth="2" strokeLinejoin="round" />
+        <polygon points="44,30 40,16 33,26" fill="#FDBA74" stroke="#9A3412" strokeWidth="2" strokeLinejoin="round" />
+        <circle cx="32" cy="32" r="11" fill="#FDBA74" stroke="#9A3412" strokeWidth="2" />
+        <circle cx="28" cy="30" r="2" fill="#431407" />
+        <circle cx="36" cy="30" r="2" fill="#431407" />
+        {/* Cozy bush / cushion in front */}
+        <ellipse cx="32" cy="44" rx="20" ry="11" fill="#4ADE80" stroke="#166534" strokeWidth="2" />
+        <circle cx="21" cy="41" r="7" fill="#4ADE80" stroke="#166534" strokeWidth="2" />
+        <circle cx="43" cy="41" r="7" fill="#4ADE80" stroke="#166534" strokeWidth="2" />
+        <ellipse cx="32" cy="45" rx="18" ry="9" fill="#4ADE80" />
+        {/* Little paws holding onto the bush */}
+        <ellipse cx="26" cy="37" rx="3.2" ry="2.4" fill="#FED7AA" stroke="#9A3412" strokeWidth="1.5" />
+        <ellipse cx="38" cy="37" rx="3.2" ry="2.4" fill="#FED7AA" stroke="#9A3412" strokeWidth="1.5" />
+      </svg>
+    )
+  }
+
   if (id === 'laser') {
     return (
       <svg viewBox="0 0 64 64" className="w-16 h-16" aria-hidden="true">
-        <circle cx="32" cy="32" r="24" fill="#FFE4E6" />
-        <circle cx="32" cy="32" r="15" fill="#FDA4AF" />
-        <circle cx="32" cy="32" r="9" fill="#F43F5E" />
-        <circle cx="29" cy="29" r="3" fill="#FFFFFF" />
+        {/* Soft pink glow backdrop */}
+        <circle cx="48" cy="17" r="11" fill="#FFE4E6" />
+        {/* Laser beam shooting from pointer tip to glowing dot */}
+        <line
+          x1="34"
+          y1="30"
+          x2="48"
+          y2="17"
+          stroke="#FB7185"
+          strokeWidth="5"
+          strokeLinecap="round"
+          opacity="0.45"
+        />
+        <line
+          x1="34"
+          y1="30"
+          x2="48"
+          y2="17"
+          stroke="#F43F5E"
+          strokeWidth="2.4"
+          strokeDasharray="4 3"
+          strokeLinecap="round"
+        />
+        {/* Glowing laser dot + tiny sparkle */}
+        <circle cx="49" cy="16" r="5" fill="#F43F5E" />
+        <circle cx="48" cy="15" r="1.8" fill="#FFFFFF" />
+        {/* Angled laser pointer wand */}
+        <g transform="rotate(-43 24 40)">
+          <rect
+            x="9"
+            y="34"
+            width="28"
+            height="12"
+            rx="6"
+            fill="#E2E8F0"
+            stroke="#5B3A29"
+            strokeWidth="2.6"
+          />
+          <rect
+            x="33"
+            y="35"
+            width="7"
+            height="10"
+            rx="3"
+            fill="#94A3B8"
+            stroke="#5B3A29"
+            strokeWidth="2.4"
+          />
+          {/* Pointer power button */}
+          <rect
+            x="21"
+            y="31.5"
+            width="7"
+            height="4"
+            rx="2"
+            fill="#F43F5E"
+            stroke="#5B3A29"
+            strokeWidth="1.8"
+          />
+          {/* Cozy pastel grip stripe */}
+          <rect x="13" y="37" width="6" height="6" rx="2" fill="#FDA4AF" />
+        </g>
       </svg>
     )
   }
@@ -121,6 +202,7 @@ function GameArt({ id }: { id: MiniGameId }) {
         <circle cx="44" cy="22" r="11" fill="#FDE68A" stroke="#F59E0B" strokeWidth="3" />
         <ellipse cx="41" cy="18" rx="3" ry="1.8" transform="rotate(-30 41 18)" fill="#FFF" />
         <circle cx="44" cy="44" r="7" fill="#FBCFE8" stroke="#F472B6" strokeWidth="2.5" />
+        <ellipse cx="42" cy="41.5" rx="2" ry="1.2" transform="rotate(-30 42 41.5)" fill="#FFF" />
       </svg>
     )
   }

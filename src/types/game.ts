@@ -8,7 +8,11 @@ export type CatMood = 'thriving' | 'normal' | 'needsCare' | 'sad'
 
 export type StatKey = 'hunger' | 'cleanliness' | 'happiness'
 
-export type MiniGameId = 'laser' | 'bubbles' | 'treats'
+export type MiniGameId = 'laser' | 'hide_seek' | 'bubbles' | 'treats'
+
+export type HideSeekDifficulty = 'easy' | 'medium' | 'hard'
+
+export type HideSeekRoomId = 'living_room' | 'kitchen' | 'bedroom' | 'garden'
 
 export type AccessorySlot = 'neck' | 'head' | 'eyes'
 
@@ -78,6 +82,7 @@ export interface GameState {
   }
   tutorialStep?: number // 0: Feed, 1: Pet, 2: Play, 3: Complete
   feedsSinceMess?: number
+  hideSeekBeaten?: HideSeekDifficulty[]
 }
 
 export interface LevelUpEvent {
@@ -445,6 +450,13 @@ export const MINIGAME_CATALOG: MiniGameInfo[] = [
     shortHint: 'Tap the glowing dot!',
     unlockLevel: 1,
     accent: '#FB7185',
+  },
+  {
+    id: 'hide_seek',
+    label: 'Hide & Seek',
+    shortHint: 'Find kitty hiding in a room!',
+    unlockLevel: 1,
+    accent: '#10B981',
   },
   {
     id: 'bubbles',

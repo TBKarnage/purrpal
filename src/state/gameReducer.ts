@@ -11,6 +11,7 @@ import {
   type FoodItem,
   type GameState,
   type GrowthStage,
+  type HideSeekDifficulty,
   type LevelUpEvent,
   type MiniGameId,
 } from '../types/game'
@@ -22,6 +23,16 @@ import {
   clampStat,
   createRoomMess,
 } from './timeDecay'
+
+export function isHideSeekDifficultyUnlocked(
+  beaten: readonly HideSeekDifficulty[] | undefined,
+  difficulty: HideSeekDifficulty,
+): boolean {
+  if (difficulty === 'easy') return true
+  const cleared = new Set(beaten ?? [])
+  if (difficulty === 'medium') return cleared.has('easy')
+  return cleared.has('medium')
+}
 
 export function xpRequiredForLevel(level: number): number {
   const safeLevel = Math.max(1, Math.floor(level))
@@ -109,6 +120,7 @@ export function createInitialGameState(
     },
     tutorialStep: 0,
     feedsSinceMess: 0,
+    hideSeekBeaten: [],
   }
 }
 
@@ -220,7 +232,13 @@ export type GameAction =
   | { type: 'CLEAN_MESS'; messId: string; now?: number }
   | { type: 'BRUSH_CAT'; now?: number }
   | { type: 'PET_CAT'; awardRewards: boolean; now?: number }
-  | { type: 'COMPLETE_MINIGAME'; gameId: MiniGameId; score: number; now?: number }
+  | {
+      type: 'COMPLETE_MINIGAME'
+      gameId: MiniGameId
+      score: number
+      hideSeekDifficulty?: HideSeekDifficulty
+      now?: number
+    }
   | { type: 'EQUIP_ACCESSORY'; accessoryId: string | null; slot?: AccessorySlot; now?: number }
   | { type: 'SET_EYE_COLOR'; eyeColor: string; now?: number }
   | { type: 'SET_CHEEK_STYLE'; cheekStyle: string; now?: number }
@@ -370,6 +388,13 @@ export function reduceGameState(
       const xpGain = Math.min(35, 15 + safeScore * 2)
       const coinsGain = 10 + safeScore * 2
 
+      const nextBeaten =
+        action.gameId === 'hide_seek' && action.hideSeekDifficulty
+          ? Array.from(
+              new Set([...(state.hideSeekBeaten ?? []), action.hideSeekDifficulty]),
+            )
+          : state.hideSeekBeaten
+
       const updated: GameState = {
         ...state,
         lastSavedAt: now,
@@ -382,6 +407,7 @@ export function reduceGameState(
           coins: state.inventory.coins + coinsGain,
         },
         tutorialStep: state.tutorialStep === 2 ? 3 : state.tutorialStep,
+        hideSeekBeaten: nextBeaten,
       }
       return applyXpGain(updated, xpGain, now)
     }
@@ -582,3 +608,9 @@ export function getMiniGameRewards(score: number): {
     coinsGain: 10 + safeScore * 2,
   }
 }
+
+// Randomized 50–60s Hide & Seek hint delay
+export function nextHintDelayMs(): number {
+  return 50_000 + Math.floor(Math.random() * 10_001)
+}
+
