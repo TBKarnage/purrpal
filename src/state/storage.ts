@@ -208,11 +208,12 @@ export function validateAndNormalizeGameState(raw: unknown): GameState | null {
 }
 
 function openDatabase(): Promise<IDBDatabase | null> {
-  if (typeof indexedDB === 'undefined') {
-    return Promise.resolve(null)
-  }
   return new Promise((resolve) => {
     try {
+      if (typeof indexedDB === 'undefined') {
+        resolve(null)
+        return
+      }
       const request = indexedDB.open(DB_NAME, DB_VERSION)
       request.onupgradeneeded = () => {
         const db = request.result
@@ -299,8 +300,8 @@ async function clearIndexedDB(): Promise<void> {
 }
 
 function readFromLocalStorage(): GameState | null {
-  if (typeof localStorage === 'undefined') return null
   try {
+    if (typeof localStorage === 'undefined') return null
     const serialized = localStorage.getItem(LOCAL_STORAGE_KEY)
     if (!serialized) return null
     const parsed: unknown = JSON.parse(serialized)
@@ -311,11 +312,11 @@ function readFromLocalStorage(): GameState | null {
 }
 
 function writeToLocalStorage(state: GameState): void {
-  if (typeof localStorage === 'undefined') return
   try {
+    if (typeof localStorage === 'undefined') return
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state))
   } catch {
-    // Ignore quota/private-mode errors
+    // Ignore quota/private-mode/sandbox errors
   }
 }
 
@@ -352,12 +353,12 @@ export async function loadGameState(): Promise<GameState | null> {
 }
 
 export async function clearGameState(): Promise<void> {
-  if (typeof localStorage !== 'undefined') {
-    try {
+  try {
+    if (typeof localStorage !== 'undefined') {
       localStorage.removeItem(LOCAL_STORAGE_KEY)
-    } catch {
-      // Ignore storage access errors
     }
+  } catch {
+    // Ignore storage access errors
   }
   await clearIndexedDB()
 }
