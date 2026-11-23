@@ -69,33 +69,32 @@ export function useGameState(): UseGameStateReturn {
   useEffect(() => {
     const detachFlush = attachLifecycleFlushListeners(() => stateRef.current)
 
+    const syncElapsed = () => {
+      if (!stateRef.current) return
+      const caughtUp = applyElapsedTime(stateRef.current, Date.now())
+      if (caughtUp !== stateRef.current) {
+        stateRef.current = caughtUp
+        setGameState(caughtUp)
+        void saveGameState(caughtUp)
+      }
+    }
+
     const onReturnVisible = () => {
-      if (document.visibilityState === 'visible' && stateRef.current) {
-        const caughtUp = applyElapsedTime(stateRef.current, Date.now())
-        if (caughtUp !== stateRef.current) {
-          stateRef.current = caughtUp
-          setGameState(caughtUp)
-          void saveGameState(caughtUp)
-        }
+      if (document.visibilityState === 'visible') {
+        syncElapsed()
       }
     }
 
     document.addEventListener('visibilitychange', onReturnVisible)
+    window.addEventListener('focus', syncElapsed)
 
-    const tickInterval = window.setInterval(() => {
-      if (stateRef.current) {
-        const next = applyElapsedTime(stateRef.current, Date.now())
-        if (next !== stateRef.current) {
-          stateRef.current = next
-          setGameState(next)
-          void saveGameState(next)
-        }
-      }
-    }, 60_000)
+    // Tick every 15s while open so real-time stat updates reflect smoothly without refresh
+    const tickInterval = window.setInterval(syncElapsed, 15_000)
 
     return () => {
       detachFlush()
       document.removeEventListener('visibilitychange', onReturnVisible)
+      window.removeEventListener('focus', syncElapsed)
       window.clearInterval(tickInterval)
       if (saveTimerRef.current !== null) {
         window.clearTimeout(saveTimerRef.current)
@@ -148,7 +147,12 @@ export function useGameState(): UseGameStateReturn {
   )
 
   const importState = useCallback(async (restored: GameState) => {
-    const normalized: GameState = { ...restored, lastSavedAt: Date.now() }
+    const now = Date.now()
+    const normalized: GameState = {
+      ...restored,
+      lastSavedAt: now,
+      lastDecayAt: now,
+    }
     stateRef.current = normalized
     setGameState(normalized)
     setPendingLevelUp(null)

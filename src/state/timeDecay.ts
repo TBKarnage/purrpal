@@ -1,24 +1,41 @@
-import type { CatMood, GameState, MessType, RoomMess, StatKey } from '../types/game'
+import type {
+  CatMood,
+  GameState,
+  MessType,
+  RoomMess,
+  StatDecayCarry,
+  StatKey,
+} from '../types/game'
 
-export const STAT_FLOOR = 15
+export const STAT_FLOOR = 25
 export const STAT_MAX = 100
 export const MAX_MESSES = 3
 
-export const HUNGER_DECAY_PER_HOUR = 4
-export const CLEANLINESS_DECAY_PER_HOUR = 3
-export const CLEANLINESS_MESS_PENALTY = 8
-export const HAPPINESS_DECAY_PER_HOUR = 4
-export const HOURS_PER_MESS = 4
+// Real-time synced cozy decay rates (noticeable while active & backgrounded, floored gently at 25%)
+export const HUNGER_DECAY_PER_HOUR = 20 // ~1% every 3 minutes
+export const CLEANLINESS_DECAY_PER_HOUR = 12 // ~1% every 5 minutes
+export const CLEANLINESS_MESS_PENALTY = 8 // immediate cleanliness dip on mess spawn
+export const CLEANLINESS_MESS_DECAY_PER_HOUR = 12 // extra per active mess per hour
+export const HAPPINESS_DECAY_PER_HOUR = 18 // ~1% every 3m 20s
+export const HOURS_PER_MESS = 1.5
+
+export const EMPTY_STAT_CARRY: StatDecayCarry = {
+  hunger: 0,
+  cleanliness: 0,
+  happiness: 0,
+  mess: 0,
+}
 
 const MESS_TYPES: MessType[] = ['pawprints', 'hairball', 'toy']
 
+// Calibrated strictly within the clear oak floor / rug band (y: 59..70) above the bottom dock
 const MESS_SLOTS: Array<{ x: number; y: number }> = [
-  { x: 22, y: 74 },
-  { x: 77, y: 75 },
-  { x: 34, y: 82 },
-  { x: 66, y: 81 },
-  { x: 18, y: 82 },
-  { x: 82, y: 69 },
+  { x: 22, y: 65 },
+  { x: 78, y: 66 },
+  { x: 34, y: 70 },
+  { x: 66, y: 69 },
+  { x: 18, y: 60 },
+  { x: 82, y: 61 },
 ]
 
 export function clampStat(value: number): number {
@@ -34,7 +51,7 @@ export function createRoomMess(
   const available = MESS_SLOTS.filter(
     (slot) =>
       !usedSlots.some(
-        (u) => Math.abs(u.x - slot.x) < 10 && Math.abs(u.y - slot.y) < 7,
+        (u) => Math.abs(u.x - slot.x) < 10 && Math.abs(u.y - slot.y) < 6,
       ),
   )
   const chosenSlot =
@@ -56,57 +73,84 @@ export function createRoomMess(
 }
 
 /**
- * Applies cozy offline elapsed-time decay.
- * - Never drops any stat below STAT_FLOOR (15%).
+ * Applies real-time synced cozy elapsed-time decay (works identically whether
+ * the tab is open, backgrounded, or completely closed).
+ * - Uses dedicated `lastDecayAt` + fractional `statCarry` so user interactions
+ *   never reset or lose elapsed wall-clock drain time.
+ * - Never drops any stat below STAT_FLOOR (25%).
  * - Spawns at most MAX_MESSES (3) messes in the room.
- * - Zero permadeath, zero harsh penalties.
  */
 export function applyElapsedTime(state: GameState, now: number): GameState {
-  const elapsedMs = Math.max(0, now - state.lastSavedAt)
-  // Ignore tiny sub-minute deltas during active ticking unless >= 60s
-  if (elapsedMs < 60_000) {
+  const baseline = state.lastDecayAt ?? state.lastSavedAt
+  const elapsedMs = Math.max(0, now - baseline)
+  if (elapsedMs < 5_000) {
     return state
   }
 
   const elapsedHours = elapsedMs / 3_600_000
+  const carry: StatDecayCarry = state.statCarry ?? EMPTY_STAT_CARRY
 
+  // Mess spawning synced with real elapsed time
   const currentMesses = state.room.messes.slice(0, MAX_MESSES)
+  const rawMessProgress =
+    currentMesses.length < MAX_MESSES
+      ? carry.mess + elapsedHours / HOURS_PER_MESS
+      : 0
   const messesToAdd = Math.min(
     MAX_MESSES - currentMesses.length,
-    Math.floor(elapsedHours / HOURS_PER_MESS),
+    Math.floor(rawMessProgress),
   )
+  const nextMessCarry =
+    currentMesses.length + messesToAdd >= MAX_MESSES
+      ? 0
+      : rawMessProgress - messesToAdd
 
   const updatedMesses = [...currentMesses]
   for (let i = 0; i < messesToAdd; i += 1) {
     updatedMesses.push(createRoomMess(updatedMesses, now + i * 17))
   }
 
-  // Active messes gently increase cleanliness decay (-8 per active mess, scaled over time or immediately on spawn)
+  // Exact continuous stat decay with fractional carry
   const activeMessCount = updatedMesses.length
-  const hungerDecay = HUNGER_DECAY_PER_HOUR * elapsedHours
-  const happinessDecay = HAPPINESS_DECAY_PER_HOUR * elapsedHours
-  const cleanlinessDecay =
-    CLEANLINESS_DECAY_PER_HOUR * elapsedHours +
-    CLEANLINESS_MESS_PENALTY * activeMessCount * Math.min(1, elapsedHours)
+  const rawHungerLoss = carry.hunger + HUNGER_DECAY_PER_HOUR * elapsedHours
+  const rawHappinessLoss = carry.happiness + HAPPINESS_DECAY_PER_HOUR * elapsedHours
+  const rawCleanLoss =
+    carry.cleanliness +
+    (CLEANLINESS_DECAY_PER_HOUR + CLEANLINESS_MESS_DECAY_PER_HOUR * activeMessCount) *
+      elapsedHours
 
-  const nextHunger = clampStat(state.stats.hunger - hungerDecay)
-  const nextHappiness = clampStat(state.stats.happiness - happinessDecay)
-  const nextCleanliness = clampStat(state.stats.cleanliness - cleanlinessDecay)
+  const wholeHungerLoss = Math.floor(rawHungerLoss)
+  const wholeHappinessLoss = Math.floor(rawHappinessLoss)
+  const wholeCleanLoss = Math.floor(rawCleanLoss)
 
-  // Only advance lastSavedAt if at least 1 full stat point or mess changed, or >= 15 minutes passed
-  const changed =
+  const nextHunger = clampStat(state.stats.hunger - wholeHungerLoss)
+  const nextHappiness = clampStat(state.stats.happiness - wholeHappinessLoss)
+  const nextCleanliness = clampStat(state.stats.cleanliness - wholeCleanLoss)
+
+  const nextCarry: StatDecayCarry = {
+    hunger: nextHunger <= STAT_FLOOR ? 0 : rawHungerLoss - wholeHungerLoss,
+    happiness: nextHappiness <= STAT_FLOOR ? 0 : rawHappinessLoss - wholeHappinessLoss,
+    cleanliness: nextCleanliness <= STAT_FLOOR ? 0 : rawCleanLoss - wholeCleanLoss,
+    mess: nextMessCarry,
+  }
+
+  const statsOrMessChanged =
     nextHunger !== state.stats.hunger ||
     nextHappiness !== state.stats.happiness ||
     nextCleanliness !== state.stats.cleanliness ||
     updatedMesses.length !== state.room.messes.length
 
-  if (!changed && elapsedMs < 15 * 60_000) {
+  // Avoid unnecessary React renders if neither stats nor messes changed yet,
+  // unless at least 30s elapsed (so carry persists across sudden tab closes).
+  if (!statsOrMessChanged && elapsedMs < 30_000) {
     return state
   }
 
   return {
     ...state,
-    lastSavedAt: now,
+    lastSavedAt: statsOrMessChanged ? now : state.lastSavedAt,
+    lastDecayAt: now,
+    statCarry: nextCarry,
     stats: {
       hunger: nextHunger,
       cleanliness: nextCleanliness,
@@ -120,10 +164,19 @@ export function applyElapsedTime(state: GameState, now: number): GameState {
 }
 
 export function getCatMood(stats: GameState['stats']): CatMood {
-  if (stats.hunger < 30 || stats.cleanliness < 30 || stats.happiness < 30) {
+  const avg = (stats.hunger + stats.cleanliness + stats.happiness) / 3
+  if (
+    stats.happiness <= 35 ||
+    stats.hunger <= 30 ||
+    stats.cleanliness <= 30 ||
+    avg <= 38
+  ) {
+    return 'sad'
+  }
+  if (stats.hunger < 50 || stats.cleanliness < 50 || stats.happiness < 50) {
     return 'needsCare'
   }
-  if (stats.hunger >= 60 && stats.cleanliness >= 60 && stats.happiness >= 60) {
+  if (stats.hunger >= 65 && stats.cleanliness >= 65 && stats.happiness >= 70) {
     return 'thriving'
   }
   return 'normal'
@@ -135,6 +188,6 @@ export function getPriorityNeed(stats: GameState['stats']): StatKey | null {
     ['cleanliness', stats.cleanliness],
     ['happiness', stats.happiness],
   ]
-  const low = entries.filter(([, val]) => val < 30).sort((a, b) => a[1] - b[1])
+  const low = entries.filter(([, val]) => val < 50).sort((a, b) => a[1] - b[1])
   return low.length > 0 ? low[0][0] : null
 }

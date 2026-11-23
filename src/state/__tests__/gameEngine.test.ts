@@ -79,17 +79,64 @@ describe('PurrPal Save State Engine & Cozy Offline Catch-Up', () => {
     expect(toLv14.state.inventory.unlockedAccessories).toContain('wizard_hat')
   })
 
-  it('clamps all stats to 15% safe floor and caps messes at 3 after 72 hours elapsed', () => {
+  it('clamps all stats to 25% safe floor, marks kitty sad, and caps messes at 3 after 72 hours elapsed', () => {
     const startTime = 1_700_000_000_000
     const state = createInitialGameState('Luna', 'tuxedo', startTime)
     const after72h = applyElapsedTime(state, startTime + 72 * 3_600_000)
 
-    expect(after72h.stats.hunger).toBe(STAT_FLOOR)
-    expect(after72h.stats.cleanliness).toBe(STAT_FLOOR)
-    expect(after72h.stats.happiness).toBe(STAT_FLOOR)
+    expect(STAT_FLOOR).toBe(25)
+    expect(after72h.stats.hunger).toBe(25)
+    expect(after72h.stats.cleanliness).toBe(25)
+    expect(after72h.stats.happiness).toBe(25)
     expect(after72h.room.messes.length).toBe(MAX_MESSES)
-    expect(getCatMood(after72h.stats)).toBe('needsCare')
+    expect(getCatMood(after72h.stats)).toBe('sad')
     expect(getPriorityNeed(after72h.stats)).not.toBeNull()
+    for (const mess of after72h.room.messes) {
+      expect(mess.y).toBeGreaterThanOrEqual(58)
+      expect(mess.y).toBeLessThanOrEqual(71)
+    }
+  })
+
+  it('syncs real-time decay smoothly across short ticks and user actions without losing elapsed time', () => {
+    const t0 = 1_700_000_000_000
+    let stepped = createInitialGameState('Milo', 'tabby', t0)
+    // Simulate 15 minutes passing in 1-minute increments while user occasionally changes style
+    for (let m = 1; m <= 15; m += 1) {
+      const now = t0 + m * 60_000
+      if (m === 5) {
+        stepped = reduceGameState(stepped, { type: 'SET_EYE_COLOR', eyeColor: 'sky', now }).state
+      }
+      stepped = applyElapsedTime(stepped, now)
+    }
+
+    // Compare against a single 15-minute background jump
+    const jumped = applyElapsedTime(createInitialGameState('Milo', 'tabby', t0), t0 + 15 * 60_000)
+
+    expect(stepped.stats.hunger).toBe(jumped.stats.hunger)
+    expect(stepped.stats.cleanliness).toBe(jumped.stats.cleanliness)
+    expect(stepped.stats.happiness).toBe(jumped.stats.happiness)
+    // 15 minutes at 20/hr hunger = -5 points (80 -> 75)
+    expect(jumped.stats.hunger).toBe(75)
+    // 15 minutes at 12/hr clean = -3 points (88 -> 85)
+    expect(jumped.stats.cleanliness).toBe(85)
+  })
+
+  it('reflects thriving, normal, needsCare, and sad moods accurately and normalizes legacy mess positions', () => {
+    expect(getCatMood({ hunger: 80, cleanliness: 80, happiness: 80 })).toBe('thriving')
+    expect(getCatMood({ hunger: 60, cleanliness: 60, happiness: 60 })).toBe('normal')
+    expect(getCatMood({ hunger: 45, cleanliness: 70, happiness: 60 })).toBe('needsCare')
+    expect(getCatMood({ hunger: 70, cleanliness: 70, happiness: 34 })).toBe('sad')
+
+    const legacy = createInitialGameState('Mochi', 'gray', 10_000)
+    const withLowMess = {
+      ...legacy,
+      room: {
+        ...legacy.room,
+        messes: [{ id: 'old_1', x: 34, y: 84, type: 'pawprints' as const }],
+      },
+    }
+    const normalized = validateAndNormalizeGameState(withLowMess)
+    expect(normalized?.room.messes[0].y).toBeLessThanOrEqual(71)
   })
 
   it('spawns a mess after 3 hungry feedings and never exceeds 3 messes', () => {

@@ -52,14 +52,28 @@ export function validateAndNormalizeGameState(raw: unknown): GameState | null {
     typeof raw.lastSavedAt === 'number' && Number.isFinite(raw.lastSavedAt)
       ? raw.lastSavedAt
       : createdAt
+  const lastDecayAt =
+    typeof raw.lastDecayAt === 'number' && Number.isFinite(raw.lastDecayAt)
+      ? raw.lastDecayAt
+      : lastSavedAt
+
+  const rawCarry = isRecord(raw.statCarry) ? raw.statCarry : null
+  const clampCarry = (val: unknown) =>
+    typeof val === 'number' && Number.isFinite(val) ? Math.max(0, Math.min(10, val)) : 0
+  const statCarry = {
+    hunger: clampCarry(rawCarry?.hunger),
+    cleanliness: clampCarry(rawCarry?.cleanliness),
+    happiness: clampCarry(rawCarry?.happiness),
+    mess: clampCarry(rawCarry?.mess),
+  }
 
   const rawMesses = Array.isArray(raw.room.messes) ? raw.room.messes : []
   const messes: RoomMess[] = []
   for (const m of rawMesses.slice(0, MAX_MESSES)) {
     if (!isRecord(m)) continue
     if (typeof m.id !== 'string') continue
-    const x = typeof m.x === 'number' && Number.isFinite(m.x) ? Math.max(10, Math.min(90, m.x)) : 25
-    const y = typeof m.y === 'number' && Number.isFinite(m.y) ? Math.max(55, Math.min(88, m.y)) : 75
+    const x = typeof m.x === 'number' && Number.isFinite(m.x) ? Math.max(14, Math.min(86, m.x)) : 25
+    const y = typeof m.y === 'number' && Number.isFinite(m.y) ? Math.max(58, Math.min(71, m.y)) : 65
     const type: MessType = VALID_MESS_TYPES.has(m.type as MessType)
       ? (m.type as MessType)
       : 'pawprints'
@@ -151,6 +165,8 @@ export function validateAndNormalizeGameState(raw: unknown): GameState | null {
     schemaVersion: 1,
     createdAt,
     lastSavedAt,
+    lastDecayAt,
+    statCarry,
     cat: {
       name: rawName.slice(0, 16),
       coat,

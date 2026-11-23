@@ -18,12 +18,16 @@ export type CatAnimationMode =
   | 'wiggle'
   | 'zoomie'
   | 'headShake'
+  | 'walking'
+  | 'napping'
+  | 'playing'
 
 interface CatSpriteProps {
   coat: CoatStyle
   stage: GrowthStage
   mood: CatMood
   animation?: CatAnimationMode
+  facing?: 'left' | 'right'
   headShakeKey?: number
   equippedAccessory?: string | null
   style?: CatStyleConfig
@@ -229,6 +233,7 @@ export function CatSprite({
   stage,
   mood,
   animation = 'idle',
+  facing = 'right',
   headShakeKey = 0,
   equippedAccessory = null,
   style,
@@ -257,26 +262,49 @@ export function CatSprite({
   const eyeAcc = effectiveStyle.eyes
   const headAcc = effectiveStyle.head
 
+  const isSad = mood === 'sad'
+  const isNeedsCare = mood === 'needsCare'
+  const isDown = isSad || isNeedsCare
+  const isNapping = animation === 'napping'
   const isBlissful =
     animation === 'petting' ||
     animation === 'brushing' ||
     animation === 'eating' ||
     animation === 'headShake'
   const isExcitedTail =
-    animation === 'petting' || animation === 'brushing' || animation === 'eating' || mood === 'thriving'
+    animation === 'petting' ||
+    animation === 'brushing' ||
+    animation === 'eating' ||
+    animation === 'playing' ||
+    mood === 'thriving'
+
+  const tailAnimClass = isExcitedTail
+    ? 'animate-tail-excited'
+    : isDown && !isBlissful
+      ? 'animate-tail-droop'
+      : 'animate-tail-sway'
 
   const bodyAnimClass =
     animation === 'eating'
       ? 'animate-cat-munch'
-      : animation === 'wiggle' || animation === 'petting' || animation === 'brushing'
+      : animation === 'wiggle' ||
+          animation === 'petting' ||
+          animation === 'brushing' ||
+          animation === 'playing'
         ? 'animate-cat-wiggle'
-        : animation === 'zoomie'
-          ? 'animate-cat-zoomie'
-          : animation === 'headShake'
-            ? ''
-            : mood === 'thriving'
-              ? 'animate-cat-happy'
-              : 'animate-cat-breathe'
+        : animation === 'walking'
+          ? 'animate-cat-walk'
+          : animation === 'napping'
+            ? 'animate-cat-nap'
+            : animation === 'zoomie'
+              ? 'animate-cat-zoomie'
+              : animation === 'headShake'
+                ? ''
+                : isSad
+                  ? 'animate-cat-sad'
+                  : mood === 'thriving'
+                    ? 'animate-cat-happy'
+                    : 'animate-cat-breathe'
 
   const leftEarBaseX = g.headCx - g.earSpread
   const rightEarBaseX = g.headCx + g.earSpread
@@ -303,8 +331,8 @@ export function CatSprite({
       data-cat-mood={mood}
       data-cat-accessory={equippedAccessory ?? 'none'}
     >
-      {/* Cute Thought Bubble when Needs Care */}
-      {showThoughtBubble && mood === 'needsCare' && priorityNeed && (
+      {/* Cute Thought Bubble when Needs Care or Sad */}
+      {showThoughtBubble && isDown && priorityNeed && !isNapping && (
         <div
           className="absolute -top-4 right-0 sm:right-2 z-20 animate-thought-bob pointer-events-none"
           aria-label={`Kitty needs ${priorityNeed}`}
@@ -319,9 +347,20 @@ export function CatSprite({
         </div>
       )}
 
+      {/* Cozy Napping zZz Pill */}
+      {showThoughtBubble && isNapping && (
+        <div className="absolute -top-2 right-1 z-20 animate-thought-bob pointer-events-none">
+          <div className="rounded-full bg-[#FFFDF8]/95 border-[2.5px] border-[#A78BFA] px-2.5 py-0.5 text-sm font-black text-[#6D28D9] shadow-sm">
+            zZz
+          </div>
+        </div>
+      )}
+
       <svg
         viewBox="0 0 300 285"
-        className="w-full h-full overflow-visible drop-shadow-[0_10px_14px_rgba(91,58,41,0.16)]"
+        className={`w-full h-full overflow-visible drop-shadow-[0_10px_14px_rgba(91,58,41,0.16)] transition-transform duration-300 ${
+          facing === 'left' ? '-scale-x-100' : ''
+        }`}
         role="img"
         aria-label={`${coat} ${stage} cat`}
       >
@@ -346,7 +385,7 @@ export function CatSprite({
         <g className={bodyAnimClass} style={{ transformOrigin: '150px 255px' }}>
           {/* Tail */}
           <g
-            className={isExcitedTail ? 'animate-tail-excited' : 'animate-tail-sway'}
+            className={tailAnimClass}
             style={{ transformOrigin: `${g.tailOriginX}px ${g.tailOriginY}px` }}
           >
             {/* Tail outline */}
@@ -633,23 +672,44 @@ export function CatSprite({
             className={animation === 'headShake' ? 'animate-cat-head-shake' : undefined}
             style={{ transformOrigin: `${g.headCx}px ${g.neckY}px` }}
           >
-          {/* Left Ear */}
-          <g className="animate-ear-twitch" style={{ transformOrigin: `${leftEarBaseX}px ${earBaseY}px` }}>
-            <path
-              d={`M ${leftEarBaseX - 10} ${earBaseY + 14} L ${leftEarBaseX - 14} ${earTopY} Q ${leftEarBaseX - 10} ${earTopY - 8} ${leftEarBaseX + 2} ${earTopY - 2} L ${leftEarBaseX + 28} ${earBaseY - 12} Z`}
-              fill={coat === 'calico' ? '#F29A4B' : coat === 'gray' ? '#8291A7' : p.base}
-              stroke={p.outline}
-              strokeWidth="5.2"
-              strokeLinejoin="round"
-            />
-            <path
-              d={`M ${leftEarBaseX - 3} ${earBaseY + 4} L ${leftEarBaseX - 5} ${earTopY + 11} L ${leftEarBaseX + 18} ${earBaseY - 6} Z`}
-              fill={p.earInner}
-            />
+          {/* Left Ear (droops outward when sad or needing care) */}
+          <g
+            transform={
+              isSad && !isBlissful
+                ? `rotate(-25 ${leftEarBaseX} ${earBaseY})`
+                : isNeedsCare && !isBlissful
+                  ? `rotate(-14 ${leftEarBaseX} ${earBaseY})`
+                  : undefined
+            }
+          >
+            <g
+              className={!isDown && !isNapping ? 'animate-ear-twitch' : undefined}
+              style={{ transformOrigin: `${leftEarBaseX}px ${earBaseY}px` }}
+            >
+              <path
+                d={`M ${leftEarBaseX - 10} ${earBaseY + 14} L ${leftEarBaseX - 14} ${earTopY} Q ${leftEarBaseX - 10} ${earTopY - 8} ${leftEarBaseX + 2} ${earTopY - 2} L ${leftEarBaseX + 28} ${earBaseY - 12} Z`}
+                fill={coat === 'calico' ? '#F29A4B' : coat === 'gray' ? '#8291A7' : p.base}
+                stroke={p.outline}
+                strokeWidth="5.2"
+                strokeLinejoin="round"
+              />
+              <path
+                d={`M ${leftEarBaseX - 3} ${earBaseY + 4} L ${leftEarBaseX - 5} ${earTopY + 11} L ${leftEarBaseX + 18} ${earBaseY - 6} Z`}
+                fill={p.earInner}
+              />
+            </g>
           </g>
 
-          {/* Right Ear */}
-          <g>
+          {/* Right Ear (droops outward when sad or needing care) */}
+          <g
+            transform={
+              isSad && !isBlissful
+                ? `rotate(25 ${rightEarBaseX} ${earBaseY})`
+                : isNeedsCare && !isBlissful
+                  ? `rotate(14 ${rightEarBaseX} ${earBaseY})`
+                  : undefined
+            }
+          >
             <path
               d={`M ${rightEarBaseX + 10} ${earBaseY + 14} L ${rightEarBaseX + 14} ${earTopY} Q ${rightEarBaseX + 10} ${earTopY - 8} ${rightEarBaseX - 2} ${earTopY - 2} L ${rightEarBaseX - 28} ${earBaseY - 12} Z`}
               fill={coat === 'calico' ? '#4E4657' : coat === 'gray' ? '#8291A7' : p.base}
@@ -740,7 +800,12 @@ export function CatSprite({
           />
 
           {/* Eyes */}
-          {isBlissful ? (
+          {isNapping ? (
+            <g fill="none" stroke={p.outline} strokeWidth="4.4" strokeLinecap="round">
+              <path d={`M ${g.headCx - g.eyeOffsetX - 10} ${g.eyeY} Q ${g.headCx - g.eyeOffsetX} ${g.eyeY + 8} ${g.headCx - g.eyeOffsetX + 10} ${g.eyeY}`} />
+              <path d={`M ${g.headCx + g.eyeOffsetX - 10} ${g.eyeY} Q ${g.headCx + g.eyeOffsetX} ${g.eyeY + 8} ${g.headCx + g.eyeOffsetX + 10} ${g.eyeY}`} />
+            </g>
+          ) : isBlissful ? (
             <g fill="none" stroke={p.outline} strokeWidth="4.6" strokeLinecap="round">
               <path d={`M ${g.headCx - g.eyeOffsetX - 10} ${g.eyeY + 3} Q ${g.headCx - g.eyeOffsetX} ${g.eyeY - 9} ${g.headCx - g.eyeOffsetX + 10} ${g.eyeY + 3}`} />
               <path d={`M ${g.headCx + g.eyeOffsetX - 10} ${g.eyeY + 3} Q ${g.headCx + g.eyeOffsetX} ${g.eyeY - 9} ${g.headCx + g.eyeOffsetX + 10} ${g.eyeY + 3}`} />
@@ -748,41 +813,70 @@ export function CatSprite({
           ) : (
             <g className="animate-eye-blink" style={{ transformOrigin: `${g.headCx}px ${g.eyeY}px` }}>
               <ellipse cx={g.headCx - g.eyeOffsetX} cy={g.eyeY} rx={g.eyeRx} ry={g.eyeRy} fill={eyeFill} />
-              <circle cx={g.headCx - g.eyeOffsetX - 3.4} cy={g.eyeY - 4} r={3.8} fill="#FFFFFF" />
-              <circle cx={g.headCx - g.eyeOffsetX + 3.4} cy={g.eyeY + 4} r={1.8} fill="#FFFFFF" />
+              <circle cx={g.headCx - g.eyeOffsetX - 3.4} cy={g.eyeY - 4} r={isSad ? 4.4 : 3.8} fill="#FFFFFF" />
+              <circle cx={g.headCx - g.eyeOffsetX + 3.4} cy={g.eyeY + 4} r={isSad ? 2.4 : 1.8} fill="#FFFFFF" />
 
               <ellipse cx={g.headCx + g.eyeOffsetX} cy={g.eyeY} rx={g.eyeRx} ry={g.eyeRy} fill={eyeFill} />
-              <circle cx={g.headCx + g.eyeOffsetX - 3.4} cy={g.eyeY - 4} r={3.8} fill="#FFFFFF" />
-              <circle cx={g.headCx + g.eyeOffsetX + 3.4} cy={g.eyeY + 4} r={1.8} fill="#FFFFFF" />
+              <circle cx={g.headCx + g.eyeOffsetX - 3.4} cy={g.eyeY - 4} r={isSad ? 4.4 : 3.8} fill="#FFFFFF" />
+              <circle cx={g.headCx + g.eyeOffsetX + 3.4} cy={g.eyeY + 4} r={isSad ? 2.4 : 1.8} fill="#FFFFFF" />
 
-              {/* Sleepy / pouty eyelids when Needs Care */}
-              {mood === 'needsCare' && (
+              {/* Soft worried / sad tilted eyelids & brows when Needs Care or Sad */}
+              {isDown && (
                 <>
                   <path
-                    d={`M ${g.headCx - g.eyeOffsetX - g.eyeRx - 2} ${g.eyeY - 2} L ${g.headCx - g.eyeOffsetX + g.eyeRx + 2} ${g.eyeY - 6} L ${g.headCx - g.eyeOffsetX + g.eyeRx + 2} ${g.eyeY - g.eyeRy - 4} L ${g.headCx - g.eyeOffsetX - g.eyeRx - 2} ${g.eyeY - g.eyeRy - 4} Z`}
+                    d={`M ${g.headCx - g.eyeOffsetX - g.eyeRx - 2} ${g.eyeY - (isSad ? 1 : 3)} L ${g.headCx - g.eyeOffsetX + g.eyeRx + 2} ${g.eyeY - (isSad ? 9 : 7)} L ${g.headCx - g.eyeOffsetX + g.eyeRx + 2} ${g.eyeY - g.eyeRy - 5} L ${g.headCx - g.eyeOffsetX - g.eyeRx - 2} ${g.eyeY - g.eyeRy - 5} Z`}
                     fill={p.base}
                   />
                   <path
-                    d={`M ${g.headCx + g.eyeOffsetX - g.eyeRx - 2} ${g.eyeY - 6} L ${g.headCx + g.eyeOffsetX + g.eyeRx + 2} ${g.eyeY - 2} L ${g.headCx + g.eyeOffsetX + g.eyeRx + 2} ${g.eyeY - g.eyeRy - 4} L ${g.headCx + g.eyeOffsetX - g.eyeRx - 2} ${g.eyeY - g.eyeRy - 4} Z`}
+                    d={`M ${g.headCx + g.eyeOffsetX - g.eyeRx - 2} ${g.eyeY - (isSad ? 9 : 7)} L ${g.headCx + g.eyeOffsetX + g.eyeRx + 2} ${g.eyeY - (isSad ? 1 : 3)} L ${g.headCx + g.eyeOffsetX + g.eyeRx + 2} ${g.eyeY - g.eyeRy - 5} L ${g.headCx + g.eyeOffsetX - g.eyeRx - 2} ${g.eyeY - g.eyeRy - 5} Z`}
                     fill={p.base}
                   />
                   <line
-                    x1={g.headCx - g.eyeOffsetX - g.eyeRx - 1}
-                    y1={g.eyeY - 2}
-                    x2={g.headCx - g.eyeOffsetX + g.eyeRx + 1}
-                    y2={g.eyeY - 6}
+                    x1={g.headCx - g.eyeOffsetX - g.eyeRx - 2}
+                    y1={g.eyeY - (isSad ? 1 : 3)}
+                    x2={g.headCx - g.eyeOffsetX + g.eyeRx + 2}
+                    y2={g.eyeY - (isSad ? 9 : 7)}
                     stroke={p.outline}
-                    strokeWidth="3.5"
+                    strokeWidth="3.8"
                     strokeLinecap="round"
                   />
                   <line
-                    x1={g.headCx + g.eyeOffsetX - g.eyeRx - 1}
-                    y1={g.eyeY - 6}
-                    x2={g.headCx + g.eyeOffsetX + g.eyeRx + 1}
-                    y2={g.eyeY - 2}
+                    x1={g.headCx + g.eyeOffsetX - g.eyeRx - 2}
+                    y1={g.eyeY - (isSad ? 9 : 7)}
+                    x2={g.headCx + g.eyeOffsetX + g.eyeRx + 2}
+                    y2={g.eyeY - (isSad ? 1 : 3)}
                     stroke={p.outline}
-                    strokeWidth="3.5"
+                    strokeWidth="3.8"
                     strokeLinecap="round"
+                  />
+                </>
+              )}
+
+              {/* Watery eye gleam + tiny glistening tear when Sad */}
+              {isSad && (
+                <>
+                  <ellipse
+                    cx={g.headCx - g.eyeOffsetX}
+                    cy={g.eyeY + g.eyeRy - 3}
+                    rx={g.eyeRx * 0.65}
+                    ry={2.8}
+                    fill="#BAE6FD"
+                    opacity="0.82"
+                  />
+                  <ellipse
+                    cx={g.headCx + g.eyeOffsetX}
+                    cy={g.eyeY + g.eyeRy - 3}
+                    rx={g.eyeRx * 0.65}
+                    ry={2.8}
+                    fill="#BAE6FD"
+                    opacity="0.82"
+                  />
+                  <path
+                    className="animate-tear-shimmer"
+                    d={`M ${g.headCx - g.eyeOffsetX - g.eyeRx - 1} ${g.eyeY + 7} Q ${g.headCx - g.eyeOffsetX - g.eyeRx - 5} ${g.eyeY + 14} ${g.headCx - g.eyeOffsetX - g.eyeRx - 1} ${g.eyeY + 17} Q ${g.headCx - g.eyeOffsetX - g.eyeRx + 3} ${g.eyeY + 14} ${g.headCx - g.eyeOffsetX - g.eyeRx - 1} ${g.eyeY + 7} Z`}
+                    fill="#7DD3FC"
+                    stroke="#38BDF8"
+                    strokeWidth="1.2"
                   />
                 </>
               )}
@@ -798,7 +892,7 @@ export function CatSprite({
                 rx={9.5}
                 ry={5.5}
                 fill="#FF8FA3"
-                opacity={isBlissful ? '0.82' : '0.52'}
+                opacity={isBlissful ? '0.82' : isSad ? '0.28' : '0.52'}
               />
               <ellipse
                 cx={g.headCx + g.eyeOffsetX + 15}
@@ -806,13 +900,13 @@ export function CatSprite({
                 rx={9.5}
                 ry={5.5}
                 fill="#FF8FA3"
-                opacity={isBlissful ? '0.82' : '0.52'}
+                opacity={isBlissful ? '0.82' : isSad ? '0.28' : '0.52'}
               />
             </>
           )}
 
           {cheekStyle === 'hearts' && (
-            <g fill="#FB7185" opacity="0.88">
+            <g fill="#FB7185" opacity={isSad ? '0.52' : '0.88'}>
               <path
                 d={`M ${g.headCx - g.eyeOffsetX - 15} ${g.headCy + 17} C ${g.headCx - g.eyeOffsetX - 22} ${g.headCy + 12}, ${g.headCx - g.eyeOffsetX - 21} ${g.headCy + 6}, ${g.headCx - g.eyeOffsetX - 15} ${g.headCy + 10} C ${g.headCx - g.eyeOffsetX - 9} ${g.headCy + 6}, ${g.headCx - g.eyeOffsetX - 8} ${g.headCy + 12}, ${g.headCx - g.eyeOffsetX - 15} ${g.headCy + 17} Z`}
               />
@@ -823,7 +917,7 @@ export function CatSprite({
           )}
 
           {cheekStyle === 'stars' && (
-            <g fill="#FBBF24" stroke="#B45309" strokeWidth="1.2">
+            <g fill="#FBBF24" stroke="#B45309" strokeWidth="1.2" opacity={isSad ? '0.55' : '1'}>
               <path
                 transform={`translate(${g.headCx - g.eyeOffsetX - 15}, ${g.headCy + 12})`}
                 d="M 0 -7 L 2 -2 L 7 -1.5 L 3 2 L 4 7 L 0 4.2 L -4 7 L -3 2 L -7 -1.5 L -2 -2 Z"
@@ -855,7 +949,23 @@ export function CatSprite({
               stroke={p.outline}
               strokeWidth="3"
             />
-          ) : mood === 'needsCare' && !isBlissful ? (
+          ) : isNapping ? (
+            <path
+              d={`M ${g.headCx - 6} ${g.headCy + 21} Q ${g.headCx} ${g.headCy + 25} ${g.headCx + 6} ${g.headCy + 21}`}
+              fill="none"
+              stroke={p.outline}
+              strokeWidth="3.2"
+              strokeLinecap="round"
+            />
+          ) : isSad && !isBlissful ? (
+            <path
+              d={`M ${g.headCx - 10} ${g.headCy + 26} Q ${g.headCx} ${g.headCy + 16} ${g.headCx + 10} ${g.headCy + 26}`}
+              fill="none"
+              stroke={p.outline}
+              strokeWidth="3.6"
+              strokeLinecap="round"
+            />
+          ) : isNeedsCare && !isBlissful ? (
             <path
               d={`M ${g.headCx - 7} ${g.headCy + 24} Q ${g.headCx} ${g.headCy + 19} ${g.headCx + 7} ${g.headCy + 24}`}
               fill="none"

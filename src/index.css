@@ -292,6 +292,98 @@ body,
   }
 }
 
+@keyframes cat-walk {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-9px) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  75% {
+    transform: translateY(-9px) rotate(3deg);
+  }
+}
+
+@keyframes cat-sad {
+  0%, 100% {
+    transform: translateY(4px) scaleY(0.97) scaleX(1.02);
+  }
+  50% {
+    transform: translateY(6px) scaleY(0.95) scaleX(1.03);
+  }
+}
+
+@keyframes cat-nap {
+  0%, 100% {
+    transform: translateY(2px) scaleY(0.96) scaleX(1.03);
+  }
+  50% {
+    transform: translateY(0px) scaleY(1.01) scaleX(1.01);
+  }
+}
+
+@keyframes tail-droop {
+  0%, 100% {
+    transform: rotate(14deg);
+  }
+  50% {
+    transform: rotate(20deg);
+  }
+}
+
+@keyframes plant-wiggle {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-5deg);
+  }
+  60% {
+    transform: rotate(4deg);
+  }
+  85% {
+    transform: rotate(-2deg);
+  }
+}
+
+@keyframes toy-swing {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  22% {
+    transform: rotate(22deg);
+  }
+  52% {
+    transform: rotate(-18deg);
+  }
+  78% {
+    transform: rotate(10deg);
+  }
+}
+
+@keyframes twinkle-soft {
+  0%, 100% {
+    opacity: 0.72;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes tear-shimmer {
+  0%, 100% {
+    opacity: 0.55;
+    transform: translateY(0px) scale(0.95);
+  }
+  50% {
+    opacity: 0.95;
+    transform: translateY(1.5px) scale(1.08);
+  }
+}
+
 .animate-glow-ring {
   animation: glow-ring 1.6s ease-in-out infinite;
 }
@@ -302,6 +394,18 @@ body,
 
 .animate-cat-happy {
   animation: cat-happy-bounce 1.8s ease-in-out infinite;
+}
+
+.animate-cat-walk {
+  animation: cat-walk 0.44s ease-in-out infinite;
+}
+
+.animate-cat-sad {
+  animation: cat-sad 4.2s ease-in-out infinite;
+}
+
+.animate-cat-nap {
+  animation: cat-nap 3.6s ease-in-out infinite;
 }
 
 .animate-cat-munch {
@@ -326,6 +430,10 @@ body,
 
 .animate-tail-excited {
   animation: tail-excited 0.65s ease-in-out infinite;
+}
+
+.animate-tail-droop {
+  animation: tail-droop 3.8s ease-in-out infinite;
 }
 
 .animate-ear-twitch {
@@ -358,4 +466,20 @@ body,
 
 .animate-gentle-pulse {
   animation: gentle-pulse 2s ease-in-out infinite;
+}
+
+.animate-plant-wiggle {
+  animation: plant-wiggle 0.9s ease-in-out infinite;
+}
+
+.animate-toy-swing {
+  animation: toy-swing 0.85s ease-in-out infinite;
+}
+
+.animate-twinkle-soft {
+  animation: twinkle-soft 2.4s ease-in-out infinite;
+}
+
+.animate-tear-shimmer {
+  animation: tear-shimmer 2.2s ease-in-out infinite;
 }

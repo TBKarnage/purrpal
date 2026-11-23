@@ -4,9 +4,9 @@ A cozy, touch-first virtual pet Progressive Web App designed for kids on iPadOS 
 
 ## Features
 
-- **100% Cozy & Stress-Free:** Zero permadeath and gentle stat floors (`15%`) with offline time catch-up.
+- **100% Cozy & Stress-Free:** Zero permadeath and gentle `25%` stat floors with real-time synced background and offline catch-up.
 - **Adoption & Random Kitty Names:** Pick from 4 coats (Tabby, Tuxedo, Calico, Gray), roll 6 fresh random names from a 48-name pool with the **New Names** shuffle button, or type a custom name.
-- **Living Room Care Loop:** Feed kibble & treats (with full-tummy head-shake refusal at `100%` hunger to prevent XP farming), sweep floor messes for Paw Coins, brush fur, and tap/rub to pet.
+- **Lively Roaming & Living Room Care Loop:** Your kitty strolls around the room, sniffs the potted plant, bats the Cat Tree toy, naps near the Sun Cushion, and visibly reflects happy or sad moods. Feed kibble & treats (with full-tummy head-shake refusal at `100%` hunger), tap or swipe to sweep floor messes using the unobstructed top Clean bar, brush fur, and tap/rub to pet.
 - **4 Growth Stages & Celebrations:** Evolve from **Tiny Kitten** → **Playful Junior** (Lv 4) → **Teen Cat** (Lv 8) → **Full-Grown Adult** (Lv 13) with confetti celebrations and unlock cards.
 - **3-Tab Style Boutique (Multi-Slot Layering):**
   - **Customize:** Free Starter Basics at Lv 1 (5 Eye Colors, 4 Cheek Flair styles, 4 Starter Neck Ribbons) plus layered neckwear, headwear, and eyewear unlocked as you level up.

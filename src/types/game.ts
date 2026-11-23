@@ -4,7 +4,7 @@ export type GrowthStage = 'kitten' | 'junior' | 'teen' | 'adult'
 
 export type MessType = 'pawprints' | 'hairball' | 'toy'
 
-export type CatMood = 'thriving' | 'normal' | 'needsCare'
+export type CatMood = 'thriving' | 'normal' | 'needsCare' | 'sad'
 
 export type StatKey = 'hunger' | 'cleanliness' | 'happiness'
 
@@ -29,15 +29,24 @@ export interface CatStyleConfig {
 
 export interface RoomMess {
   id: string
-  x: number // percentage 14..86
-  y: number // percentage 64..84
+  x: number // percentage 16..84
+  y: number // percentage 58..71 (always clear above bottom dock)
   type: MessType
+}
+
+export interface StatDecayCarry {
+  hunger: number
+  cleanliness: number
+  happiness: number
+  mess: number
 }
 
 export interface GameState {
   schemaVersion: 1
   createdAt: number
   lastSavedAt: number
+  lastDecayAt?: number
+  statCarry?: StatDecayCarry
   cat: {
     name: string
     coat: CoatStyle
@@ -48,9 +57,9 @@ export interface GameState {
     style?: CatStyleConfig
   }
   stats: {
-    hunger: number // 15..100
-    cleanliness: number // 15..100
-    happiness: number // 15..100
+    hunger: number // 25..100
+    cleanliness: number // 25..100
+    happiness: number // 25..100
   }
   room: {
     messes: RoomMess[]

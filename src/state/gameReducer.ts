@@ -16,6 +16,7 @@ import {
 } from '../types/game'
 import {
   CLEANLINESS_MESS_PENALTY,
+  EMPTY_STAT_CARRY,
   MAX_MESSES,
   applyElapsedTime,
   clampStat,
@@ -73,6 +74,8 @@ export function createInitialGameState(
     schemaVersion: 1,
     createdAt: now,
     lastSavedAt: now,
+    lastDecayAt: now,
+    statCarry: { ...EMPTY_STAT_CARRY },
     cat: {
       name: cleanName,
       coat,
