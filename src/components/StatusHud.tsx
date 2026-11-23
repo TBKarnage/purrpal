@@ -81,24 +81,24 @@ export function StatusHud({ gameState, onOpenParentCorner }: StatusHudProps) {
   return (
     <header
       id="status-hud"
-      className="relative z-30 w-full px-3 sm:px-5 pt-2.5 sm:pt-3 pb-1 shrink-0"
+      className="relative z-30 w-full px-2.5 sm:px-5 pt-2 sm:pt-3 pb-1 shrink-0"
     >
-      <div className="mx-auto max-w-5xl rounded-[1.75rem] bg-[#FFFDF8]/92 backdrop-blur-md border-[3px] border-[#E7C9A4] shadow-[0_8px_20px_rgba(91,58,41,0.1)] px-3 sm:px-4 py-2 flex flex-wrap md:flex-nowrap items-center justify-between gap-2 sm:gap-2.5">
+      <div className="mx-auto max-w-5xl rounded-[1.5rem] sm:rounded-[1.75rem] bg-[#FFFDF8]/92 backdrop-blur-md border-[3px] border-[#E7C9A4] shadow-[0_8px_20px_rgba(91,58,41,0.1)] px-2.5 sm:px-4 py-1.5 sm:py-2 flex flex-wrap md:flex-nowrap items-center justify-between gap-x-2 gap-y-1.5 sm:gap-2.5">
         {/* Cat Name + Level & XP */}
-        <div className="flex items-center gap-2 min-w-[138px] shrink-0">
+        <div className="flex items-center gap-2 min-w-0 shrink-0">
           <div
             id="hud-level-badge"
-            className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl border-[3px] border-[#5B3A29] flex flex-col items-center justify-center leading-none shadow-sm shrink-0"
+            className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl border-[3px] border-[#5B3A29] flex flex-col items-center justify-center leading-none shadow-sm shrink-0"
             style={{ backgroundColor: stageMeta.badgeColor }}
           >
-            <span className="text-[10px] font-black uppercase text-[#5B3A29]/80">Lv</span>
-            <span className="text-lg sm:text-xl font-black text-[#5B3A29]">{cat.level}</span>
+            <span className="text-[9px] sm:text-[10px] font-black uppercase text-[#5B3A29]/80">Lv</span>
+            <span className="text-base sm:text-xl font-black text-[#5B3A29]">{cat.level}</span>
           </div>
-          <div className="flex flex-col min-w-[84px]">
+          <div className="flex flex-col min-w-[76px]">
             <div className="flex items-center gap-1.5">
               <h1
                 id="hud-cat-name"
-                className="text-base sm:text-lg font-extrabold text-[#5B3A29] leading-tight truncate max-w-[110px]"
+                className="text-sm sm:text-lg font-extrabold text-[#5B3A29] leading-tight truncate max-w-[100px] sm:max-w-[130px]"
               >
                 {cat.name}
               </h1>
@@ -111,29 +111,29 @@ export function StatusHud({ gameState, onOpenParentCorner }: StatusHudProps) {
             </div>
             {/* XP Bar */}
             <div className="mt-1 flex items-center gap-1.5">
-              <div className="w-20 lg:w-24 h-3 rounded-full bg-[#F2E2CC] border-2 border-[#D4B48B] overflow-hidden">
+              <div className="w-16 sm:w-20 lg:w-24 h-2.5 sm:h-3 rounded-full bg-[#F2E2CC] border-2 border-[#D4B48B] overflow-hidden">
                 <div
                   id="hud-xp-fill"
                   className="h-full rounded-full bg-gradient-to-r from-[#FBBF24] to-[#F59E0B] transition-all duration-300"
                   style={{ width: `${xpPercent}%` }}
                 />
               </div>
-              <span id="hud-xp-text" className="text-[11px] font-extrabold text-[#8A6552] whitespace-nowrap">
+              <span id="hud-xp-text" className="text-[10px] sm:text-[11px] font-extrabold text-[#8A6552] whitespace-nowrap">
                 {cat.xp}/{xpNeeded}
               </span>
             </div>
           </div>
         </div>
 
-        {/* 3 Chunky Care Stat Meters */}
-        <div className="flex items-center gap-2 lg:gap-3 flex-1 justify-center order-3 md:order-2 w-full md:w-auto min-w-0">
+        {/* 3 Chunky Care Stat Meters (full second row on phones, inline on md+) */}
+        <div className="flex items-center gap-2 lg:gap-3 basis-full md:basis-auto md:flex-1 justify-between md:justify-center order-3 md:order-2 min-w-0">
           <StatBar
             id="stat-hunger"
             label="Food"
             value={stats.hunger}
             barClass="from-[#FBBF24] to-[#F59E0B]"
             trackClass="bg-[#FEF3C7] border-[#EAB308]"
-            icon={<FishBowlIcon className="w-6 h-6 lg:w-7 lg:h-7 shrink-0" />}
+            icon={<FishBowlIcon className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7 shrink-0" />}
           />
           <StatBar
             id="stat-cleanliness"
@@ -141,7 +141,7 @@ export function StatusHud({ gameState, onOpenParentCorner }: StatusHudProps) {
             value={stats.cleanliness}
             barClass="from-[#7DD3FC] to-[#0EA5E9]"
             trackClass="bg-[#E0F2FE] border-[#38BDF8]"
-            icon={<SparklesIcon className="w-6 h-6 lg:w-7 lg:h-7 shrink-0" />}
+            icon={<SparklesIcon className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7 shrink-0" />}
           />
           <StatBar
             id="stat-happiness"
@@ -149,7 +149,7 @@ export function StatusHud({ gameState, onOpenParentCorner }: StatusHudProps) {
             value={stats.happiness}
             barClass="from-[#FDA4AF] to-[#FB7185]"
             trackClass="bg-[#FFE4E6] border-[#FB7185]"
-            icon={<HeartIcon className="w-6 h-6 lg:w-7 lg:h-7 shrink-0" />}
+            icon={<HeartIcon className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7 shrink-0" />}
           />
         </div>
 

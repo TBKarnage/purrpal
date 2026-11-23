@@ -439,7 +439,7 @@ export function LivingRoom({
   const drawerActive = showFeedTray || showCleanTray
   const effectiveX = drawerActive ? 50 : activeSpot.x
   const effectiveBottomPx = showFeedTray
-    ? 262
+    ? 282
     : showCleanTray
       ? cleanTool === 'sweep'
         ? 172
@@ -726,19 +726,19 @@ export function LivingRoom({
       {activeTutorial && (
         <div
           id="tutorial-pill"
-          className="absolute top-[118px] md:top-[84px] left-1/2 -translate-x-1/2 z-20 flex items-center gap-2.5 rounded-full bg-[#FFFDF8]/95 border-[3px] border-[#FB7185] shadow-lg px-4 py-2"
+          className="absolute top-[134px] md:top-[84px] left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-1.5rem)] flex items-center gap-2 rounded-full bg-[#FFFDF8]/95 border-[3px] border-[#FB7185] shadow-lg px-3 sm:px-4 py-1.5 sm:py-2 whitespace-nowrap"
         >
-          <span className="w-7 h-7 rounded-full bg-[#FB7185] text-white text-sm font-black flex items-center justify-center">
+          <span className="w-6 h-6 sm:w-7 sm:h-7 shrink-0 rounded-full bg-[#FB7185] text-white text-xs sm:text-sm font-black flex items-center justify-center">
             {tutorialStep + 1}
           </span>
-          <span className="text-base font-extrabold text-[#5B3A29]">
+          <span className="text-sm sm:text-base font-extrabold text-[#5B3A29]">
             {activeTutorial.title}
           </span>
           <button
             id="btn-skip-tutorial"
             type="button"
             onClick={onDismissTutorial}
-            className="ml-1 text-xs font-extrabold text-[#9A745E] px-2 py-0.5 rounded-full bg-[#F5E6D3]"
+            className="ml-0.5 shrink-0 text-xs font-extrabold text-[#9A745E] px-2.5 py-0.5 rounded-full bg-[#F5E6D3]"
           >
             Got it
           </button>
@@ -749,7 +749,7 @@ export function LivingRoom({
       {showCleanTray && (
         <div
           id="clean-drawer"
-          className="absolute top-[118px] md:top-[84px] left-1/2 -translate-x-1/2 z-30 w-full max-w-md px-3 sm:px-5 flex flex-col items-center gap-1.5"
+          className="absolute top-[132px] md:top-[84px] left-1/2 -translate-x-1/2 z-30 w-full max-w-md px-2.5 sm:px-5 flex flex-col items-center gap-1.5"
         >
           <div className="w-full rounded-[1.5rem] bg-[#FFFDF8]/96 border-[3px] border-[#38BDF8] shadow-[0_10px_24px_rgba(91,58,41,0.16)] p-2 flex items-center gap-2">
             <button
@@ -894,7 +894,7 @@ export function LivingRoom({
             equippedAccessory={cat.equippedAccessory}
             style={cat.style}
             priorityNeed={priorityNeed}
-            className="w-52 h-52 sm:w-64 sm:h-64 md:w-72 md:h-72"
+            className="w-44 h-44 sm:w-64 sm:h-64 md:w-72 md:h-72"
           />
 
           {/* Food Bowl Appears During 1.5s Eating Animation */}

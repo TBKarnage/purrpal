@@ -22,16 +22,16 @@ export function MiniGameHub({
       aria-label="Play Mini-Games"
       className="fixed inset-0 z-40 flex items-center justify-center bg-[#5B3A29]/45 backdrop-blur-sm p-4"
     >
-      <div className="w-full max-w-3xl rounded-[2.25rem] bg-[#FFFDF8] border-4 border-[#FDA4AF] shadow-[0_22px_50px_rgba(91,58,41,0.28)] p-5 sm:p-7 flex flex-col gap-5">
+      <div className="w-full max-w-3xl max-h-[92dvh] overflow-y-auto rounded-[2rem] sm:rounded-[2.25rem] bg-[#FFFDF8] border-4 border-[#FDA4AF] shadow-[0_22px_50px_rgba(91,58,41,0.28)] p-4 sm:p-7 flex flex-col gap-3.5 sm:gap-5">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <PlayYarnIcon className="w-10 h-10" />
-            <div>
-              <h2 className="text-2xl sm:text-3xl font-black text-[#5B3A29] leading-none">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <PlayYarnIcon className="w-8 h-8 sm:w-10 sm:h-10 shrink-0" />
+            <div className="min-w-0">
+              <h2 className="text-xl sm:text-3xl font-black text-[#5B3A29] leading-none">
                 Play Time!
               </h2>
-              <p className="text-sm font-bold text-[#8A6552] mt-1">
+              <p className="text-xs sm:text-sm font-bold text-[#8A6552] mt-1">
                 Win Paw Coins, XP &amp; Happy Hearts!
               </p>
             </div>
@@ -41,14 +41,14 @@ export function MiniGameHub({
             id="btn-close-hub"
             type="button"
             onClick={onClose}
-            className="cozy-btn min-h-[56px] px-6 rounded-2xl bg-[#FFF2D6] border-[3px] border-[#E7C69C] text-[#5B3A29] text-lg font-black"
+            className="cozy-btn shrink-0 min-h-[46px] sm:min-h-[56px] px-4 sm:px-6 rounded-2xl bg-[#FFF2D6] border-[3px] border-[#E7C69C] text-[#5B3A29] text-base sm:text-lg font-black"
           >
             Back
           </button>
         </div>
 
         {/* 3 Chunky Game Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           {MINIGAME_CATALOG.map((game) => {
             const unlocked =
               settings.unlockAllMiniGames || cat.level >= game.unlockLevel
@@ -60,19 +60,19 @@ export function MiniGameHub({
                 type="button"
                 disabled={!unlocked}
                 onClick={() => onSelectGame(game.id)}
-                className={`cozy-btn relative min-h-[190px] sm:min-h-[220px] rounded-[1.8rem] border-4 p-4 flex flex-col items-center justify-between text-center ${
+                className={`cozy-btn relative min-h-[120px] sm:min-h-[220px] rounded-[1.5rem] sm:rounded-[1.8rem] border-4 p-3 sm:p-4 flex flex-row sm:flex-col items-center justify-between gap-3 text-left sm:text-center ${
                   unlocked
                     ? 'bg-gradient-to-b from-[#FFFDF8] to-[#FFF4E3] shadow-[0_6px_0_rgba(91,58,41,0.16)]'
                     : 'bg-[#F5EFE6] border-[#DAC8B2] opacity-70 cursor-not-allowed'
                 }`}
                 style={unlocked ? { borderColor: game.accent } : undefined}
               >
-                <div className="w-20 h-20 rounded-3xl bg-[#FFF8EC] border-[3px] border-[#EFE0C9] flex items-center justify-center shadow-inner">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-2xl sm:rounded-3xl bg-[#FFF8EC] border-[3px] border-[#EFE0C9] flex items-center justify-center shadow-inner">
                   <GameArt id={game.id} />
                 </div>
 
-                <div>
-                  <h3 className="text-xl font-black text-[#5B3A29]">
+                <div className="flex-1 sm:flex-none min-w-0">
+                  <h3 className="text-lg sm:text-xl font-black text-[#5B3A29]">
                     {game.label}
                   </h3>
                   <p className="text-xs sm:text-sm font-bold text-[#8A6552] mt-0.5">
@@ -82,15 +82,15 @@ export function MiniGameHub({
 
                 {unlocked ? (
                   <span
-                    className="w-full py-2 rounded-xl text-white text-base font-black shadow-sm"
+                    className="shrink-0 sm:w-full px-4 sm:px-0 py-2 rounded-xl text-white text-sm sm:text-base font-black shadow-sm"
                     style={{ backgroundColor: game.accent }}
                   >
                     Play!
                   </span>
                 ) : (
-                  <span className="inline-flex items-center justify-center gap-1.5 w-full py-2 rounded-xl bg-[#E7DAC8] text-[#7D563E] text-sm font-black">
+                  <span className="shrink-0 inline-flex items-center justify-center gap-1.5 sm:w-full px-3 sm:px-0 py-2 rounded-xl bg-[#E7DAC8] text-[#7D563E] text-xs sm:text-sm font-black">
                     <LockIcon className="w-4 h-4" />
-                    Level {game.unlockLevel}
+                    Lv {game.unlockLevel}
                   </span>
                 )}
               </button>

@@ -64,12 +64,12 @@ export function DressUpModal({
       aria-label="Kitty Style Boutique"
       className="fixed inset-0 z-50 flex items-center justify-center bg-[#5B3A29]/45 backdrop-blur-sm p-3 sm:p-6"
     >
-      <div className="w-full max-w-4xl max-h-[92dvh] rounded-[2.25rem] bg-[#FFFDF8] border-4 border-[#C4B5FD] shadow-[0_22px_50px_rgba(91,58,41,0.28)] p-4 sm:p-6 flex flex-col gap-4 overflow-hidden">
+      <div className="w-full max-w-4xl max-h-[92dvh] rounded-[2rem] sm:rounded-[2.25rem] bg-[#FFFDF8] border-4 border-[#C4B5FD] shadow-[0_22px_50px_rgba(91,58,41,0.28)] p-3.5 sm:p-6 flex flex-col gap-3 sm:gap-4 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5">
-            <StyleCrownIcon className="w-9 h-9" />
-            <h2 className="text-2xl sm:text-3xl font-black text-[#5B3A29]">
+        <div className="flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <StyleCrownIcon className="w-7 h-7 sm:w-9 sm:h-9 shrink-0" />
+            <h2 className="text-xl sm:text-3xl font-black text-[#5B3A29] truncate">
               {cat.name}&apos;s Style
             </h2>
           </div>
@@ -78,16 +78,16 @@ export function DressUpModal({
             id="btn-close-dressup"
             type="button"
             onClick={onClose}
-            className="cozy-btn min-h-[54px] px-6 rounded-2xl bg-[#34D399] border-b-4 border-[#059669] text-white text-lg font-black"
+            className="cozy-btn shrink-0 min-h-[46px] sm:min-h-[54px] px-5 sm:px-6 rounded-2xl bg-[#34D399] border-b-4 border-[#059669] text-white text-base sm:text-lg font-black"
           >
             Done
           </button>
         </div>
 
         {/* Main Content: Live Preview + 3 Boutique Tabs */}
-        <div className="flex flex-col md:flex-row gap-4 sm:gap-5 items-stretch flex-1 min-h-0">
+        <div className="flex flex-col md:flex-row gap-3 sm:gap-5 items-stretch flex-1 min-h-0">
           {/* Live Layered Preview */}
-          <div className="flex flex-col items-center justify-center rounded-3xl bg-gradient-to-b from-[#FFF6E5] to-[#FFE7C4] border-[3px] border-[#EED0A7] p-4 w-full md:w-4/12 shrink-0">
+          <div className="flex flex-row md:flex-col items-center justify-between md:justify-center gap-3 rounded-2xl sm:rounded-3xl bg-gradient-to-b from-[#FFF6E5] to-[#FFE7C4] border-[3px] border-[#EED0A7] px-3 py-2 sm:p-4 w-full md:w-4/12 shrink-0">
             <CatSprite
               coat={cat.coat}
               stage={cat.stage}
@@ -96,26 +96,28 @@ export function DressUpModal({
               equippedAccessory={cat.equippedAccessory}
               style={style}
               showThoughtBubble={false}
-              className="w-40 h-40 sm:w-48 sm:h-48"
+              className="w-24 h-24 sm:w-32 sm:h-32 md:w-48 md:h-48 shrink-0"
             />
-            <span className="mt-2 px-3.5 py-1 rounded-full bg-[#FFFDF8] border-2 border-[#E6C79C] text-sm font-extrabold text-[#7D563E]">
-              Lv {cat.level} · {STAGE_META[cat.stage].label}
-            </span>
+            <div className="flex flex-col items-end md:items-center gap-1.5">
+              <span className="px-3 py-1 rounded-full bg-[#FFFDF8] border-2 border-[#E6C79C] text-xs sm:text-sm font-extrabold text-[#7D563E] text-center">
+                Lv {cat.level} · {STAGE_META[cat.stage].label}
+              </span>
 
-            {(style.neck || style.eyes || style.head) && (
-              <button
-                id="btn-clear-accessories"
-                type="button"
-                onClick={() => onEquipAccessory(null)}
-                className="cozy-btn mt-2.5 px-3.5 py-1.5 rounded-xl bg-[#FFFDF8] border-2 border-[#E5C9A3] text-xs font-black text-[#8A6552]"
-              >
-                Take Off All
-              </button>
-            )}
+              {(style.neck || style.eyes || style.head) && (
+                <button
+                  id="btn-clear-accessories"
+                  type="button"
+                  onClick={() => onEquipAccessory(null)}
+                  className="cozy-btn px-3 py-1 rounded-xl bg-[#FFFDF8] border-2 border-[#E5C9A3] text-xs font-black text-[#8A6552]"
+                >
+                  Take Off All
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Right Panel: 3 Clear Tabs (Customize / Room / Unlocks) */}
-          <div className="flex flex-col gap-3 w-full md:w-8/12 min-h-0">
+          <div className="flex flex-col gap-2.5 sm:gap-3 w-full md:w-8/12 flex-1 min-h-0">
             <div className="grid grid-cols-3 gap-2 shrink-0">
               <button
                 id="tab-customize"

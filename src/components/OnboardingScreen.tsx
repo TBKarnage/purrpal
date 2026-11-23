@@ -63,23 +63,23 @@ export function OnboardingScreen({ onComplete, onInteract }: OnboardingScreenPro
         }}
       />
 
-      <div className="relative z-10 w-full max-w-4xl max-h-full rounded-[2.25rem] bg-[#FFFDF8]/95 border-4 border-[#E7C69C] shadow-[0_18px_40px_rgba(91,58,41,0.14)] p-5 sm:p-7 flex flex-col lg:flex-row items-center gap-5 lg:gap-8 overflow-hidden">
+      <div className="relative z-10 w-full max-w-4xl max-h-full rounded-[2rem] sm:rounded-[2.25rem] bg-[#FFFDF8]/95 border-4 border-[#E7C69C] shadow-[0_18px_40px_rgba(91,58,41,0.14)] p-4 sm:p-7 flex flex-col lg:flex-row items-center gap-3.5 sm:gap-5 lg:gap-8 overflow-y-auto lg:overflow-hidden">
         {/* Left: Live Kitten Preview */}
         <section className="flex flex-col items-center justify-center lg:w-5/12 shrink-0">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#FFF2D6] border-2 border-[#EBD0A7] mb-2">
-            <SparklesIcon className="w-5 h-5" />
-            <span className="text-sm font-extrabold tracking-wide text-[#8A5A36] uppercase">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#FFF2D6] border-2 border-[#EBD0A7] mb-1.5 sm:mb-2">
+            <SparklesIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="text-xs sm:text-sm font-extrabold tracking-wide text-[#8A5A36] uppercase">
               PurrPal
             </span>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-[#5B3A29] tracking-tight text-center">
+          <h1 className="text-2xl sm:text-4xl font-extrabold text-[#5B3A29] tracking-tight text-center">
             Pick Your Kitty!
           </h1>
 
           <div
             key={bounceKey}
-            className="relative mt-2 flex items-center justify-center w-44 h-44 sm:w-56 sm:h-56 rounded-full bg-gradient-to-b from-[#FFF7E6] to-[#FFE7C4] border-4 border-[#F2D5AC] shadow-inner"
+            className="relative mt-2 flex items-center justify-center w-32 h-32 sm:w-44 sm:h-44 lg:w-56 lg:h-56 rounded-full bg-gradient-to-b from-[#FFF7E6] to-[#FFE7C4] border-4 border-[#F2D5AC] shadow-inner"
           >
             <CatSprite
               coat={selectedCoat}
@@ -87,11 +87,11 @@ export function OnboardingScreen({ onComplete, onInteract }: OnboardingScreenPro
               mood="thriving"
               animation="idle"
               showThoughtBubble={false}
-              className="w-40 h-40 sm:w-52 sm:h-52"
+              className="w-28 h-28 sm:w-40 sm:h-40 lg:w-52 lg:h-52"
             />
           </div>
 
-          <div className="mt-3 px-5 py-1.5 rounded-2xl bg-[#FFF4E0] border-2 border-[#ECCEA3] text-2xl font-extrabold text-[#5B3A29]">
+          <div className="mt-2 sm:mt-3 px-4 sm:px-5 py-1 sm:py-1.5 rounded-2xl bg-[#FFF4E0] border-2 border-[#ECCEA3] text-xl sm:text-2xl font-extrabold text-[#5B3A29]">
             {activeName}
           </div>
         </section>
