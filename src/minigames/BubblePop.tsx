@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { CatSprite } from '../components/CatSprite'
-import { StarIcon } from '../components/Icons'
-import type { CatStyleConfig, CoatStyle, GrowthStage } from '../types/game'
+import { SparklesIcon, StarIcon } from '../components/Icons'
+import type {
+  CatStyleConfig,
+  CoatStyle,
+  GrowthStage,
+  MiniGameDifficulty,
+} from '../types/game'
 import { MiniGameResultCard } from './MiniGameResultCard'
+import { MiniGameSetupModal, type PlayAreaOption } from './MiniGameSetupModal'
 
 const GAME_DURATION_SEC = 30
 
@@ -12,8 +18,10 @@ interface BubblePopProps {
   stage: GrowthStage
   equippedAccessory: string | null
   catStyle?: CatStyleConfig
+  beatenDifficulties: readonly MiniGameDifficulty[]
   onPopSound?: (comboIndex: number) => void
-  onFinish: (score: number) => void
+  onButtonSound?: () => void
+  onFinish: (score: number, difficulty: MiniGameDifficulty) => void
   onExit: () => void
 }
 
@@ -34,6 +42,115 @@ interface PopRing {
   points: number
 }
 
+const BUBBLE_AREAS: PlayAreaOption[] = [
+  {
+    id: 'bath',
+    name: 'Bubble Bath',
+    tagline: 'Splashy suds & pastel bubbles',
+    accent: '#38BDF8',
+    skyTop: '#E0F7FF',
+    skyBottom: '#F0F9FF',
+    groundColor: '#E6BE8A',
+    icon: (
+      <svg viewBox="0 0 64 64" className="w-12 h-12" aria-hidden="true">
+        <circle cx="24" cy="36" r="14" fill="#BAE6FD" stroke="#38BDF8" strokeWidth="2.5" />
+        <circle cx="42" cy="24" r="10" fill="#FDE68A" stroke="#F59E0B" strokeWidth="2.5" />
+      </svg>
+    ),
+  },
+  {
+    id: 'garden',
+    name: 'Sunlit Garden',
+    tagline: 'Floating bubbles over green grass',
+    accent: '#10B981',
+    skyTop: '#BAE6FD',
+    skyBottom: '#DCFCE7',
+    groundColor: '#86EFAC',
+    icon: (
+      <svg viewBox="0 0 64 64" className="w-12 h-12" aria-hidden="true">
+        <rect x="8" y="42" width="48" height="14" rx="5" fill="#4ADE80" />
+        <circle cx="32" cy="28" r="12" fill="#FBCFE8" stroke="#F472B6" strokeWidth="2.5" />
+      </svg>
+    ),
+  },
+  {
+    id: 'sky',
+    name: 'Cloudy Sky',
+    tagline: 'Drift high among fluffy clouds',
+    accent: '#8B5CF6',
+    skyTop: '#DDD6FE',
+    skyBottom: '#F5F3FF',
+    groundColor: '#C4B5FD',
+    icon: (
+      <svg viewBox="0 0 64 64" className="w-12 h-12" aria-hidden="true">
+        <ellipse cx="32" cy="44" rx="20" ry="9" fill="#FFFFFF" />
+        <circle cx="32" cy="24" r="11" fill="#BAE6FD" stroke="#38BDF8" strokeWidth="2.5" />
+      </svg>
+    ),
+  },
+  {
+    id: 'night',
+    name: 'Starry Night',
+    tagline: 'Glowing moonlit bubbles',
+    accent: '#6366F1',
+    skyTop: '#312E81',
+    skyBottom: '#4C1D95',
+    groundColor: '#6D28D9',
+    icon: (
+      <svg viewBox="0 0 64 64" className="w-12 h-12" aria-hidden="true">
+        <circle cx="42" cy="20" r="8" fill="#FEF08A" />
+        <circle cx="24" cy="36" r="11" fill="#A7F3D0" stroke="#34D399" strokeWidth="2.5" />
+      </svg>
+    ),
+  },
+]
+
+const BUBBLE_DIFFICULTIES: Array<{
+  id: MiniGameDifficulty
+  label: string
+  hint: string
+  accent: string
+  badgeBg: string
+  reqText: string
+  speedMult: number
+  spawnMs: number
+  maxCount: number
+}> = [
+  {
+    id: 'easy',
+    label: 'Easy',
+    hint: 'Slow float',
+    accent: '#10B981',
+    badgeBg: '#D1FAE5',
+    reqText: 'Unlocked!',
+    speedMult: 0.85,
+    spawnMs: 850,
+    maxCount: 7,
+  },
+  {
+    id: 'medium',
+    label: 'Medium',
+    hint: 'Breezy float',
+    accent: '#F59E0B',
+    badgeBg: '#FEF3C7',
+    reqText: 'Beat Easy first!',
+    speedMult: 1.15,
+    spawnMs: 680,
+    maxCount: 9,
+  },
+  {
+    id: 'hard',
+    label: 'Hard',
+    hint: 'Fast bubbles!',
+    accent: '#FB7185',
+    badgeBg: '#FFE4E6',
+    reqText: 'Beat Medium first!',
+    speedMult: 1.5,
+    spawnMs: 520,
+    maxCount: 11,
+  },
+]
+
 const BUBBLE_TINTS = [
   'bg-[#BAE6FD]/75 border-[#38BDF8]',
   'bg-[#FBCFE8]/75 border-[#F472B6]',
@@ -41,14 +158,14 @@ const BUBBLE_TINTS = [
   'bg-[#A7F3D0]/75 border-[#34D399]',
 ]
 
-function makeBubble(id: number, startY = 104): BubbleEntity {
+function makeBubble(id: number, startY = 104, speedMult = 1): BubbleEntity {
   const golden = Math.random() < 0.2
   return {
     id,
     x: 12 + Math.random() * 76,
     y: startY,
     size: golden ? 86 : 78 + Math.floor(Math.random() * 18),
-    speed: golden ? 18 : 13 + Math.random() * 9,
+    speed: (golden ? 18 : 13 + Math.random() * 9) * speedMult,
     golden,
     tint: BUBBLE_TINTS[id % BUBBLE_TINTS.length],
   }
@@ -60,18 +177,19 @@ export function BubblePop({
   stage,
   equippedAccessory,
   catStyle,
+  beatenDifficulties,
   onPopSound,
+  onButtonSound,
   onFinish,
   onExit,
 }: BubblePopProps) {
+  const [phase, setPhase] = useState<'setup' | 'playing' | 'finished'>('setup')
+  const [selectedDiff, setSelectedDiff] = useState<MiniGameDifficulty>('easy')
+  const [selectedAreaId, setSelectedAreaId] = useState<string>('bath')
+
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION_SEC)
   const [score, setScore] = useState(0)
-  const [finished, setFinished] = useState(false)
-  const [bubbles, setBubbles] = useState<BubbleEntity[]>(() => [
-    makeBubble(1, 68),
-    makeBubble(2, 82),
-    makeBubble(3, 96),
-  ])
+  const [bubbles, setBubbles] = useState<BubbleEntity[]>([])
   const [pops, setPops] = useState<PopRing[]>([])
   const [catX, setCatX] = useState(50)
   const [batting, setBatting] = useState(false)
@@ -81,28 +199,38 @@ export function BubblePop({
   const nextIdRef = useRef(10)
   const finishedRef = useRef(false)
 
-  const restart = useCallback(() => {
-    scoreRef.current = 0
-    comboRef.current = 0
-    finishedRef.current = false
-    setScore(0)
-    setTimeLeft(GAME_DURATION_SEC)
-    setFinished(false)
-    setPops([])
-    setBubbles([makeBubble(nextIdRef.current++, 68), makeBubble(nextIdRef.current++, 85)])
-  }, [])
+  const startRound = useCallback(
+    (areaId: string, diff: MiniGameDifficulty) => {
+      onButtonSound?.()
+      const diffMeta = BUBBLE_DIFFICULTIES.find((d) => d.id === diff) ?? BUBBLE_DIFFICULTIES[0]
+      scoreRef.current = 0
+      comboRef.current = 0
+      finishedRef.current = false
+      setSelectedAreaId(areaId)
+      setSelectedDiff(diff)
+      setScore(0)
+      setTimeLeft(GAME_DURATION_SEC)
+      setPops([])
+      setBubbles([
+        makeBubble(nextIdRef.current++, 68, diffMeta.speedMult),
+        makeBubble(nextIdRef.current++, 85, diffMeta.speedMult),
+      ])
+      setPhase('playing')
+    },
+    [onButtonSound],
+  )
 
   // 30-second countdown timer
   useEffect(() => {
-    if (finished) return
+    if (phase !== 'playing') return
     const timer = window.setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           window.clearInterval(timer)
           if (!finishedRef.current) {
             finishedRef.current = true
-            setFinished(true)
-            onFinish(scoreRef.current)
+            setPhase('finished')
+            onFinish(scoreRef.current, selectedDiff)
           }
           return 0
         }
@@ -110,11 +238,12 @@ export function BubblePop({
       })
     }, 1000)
     return () => window.clearInterval(timer)
-  }, [finished, onFinish])
+  }, [phase, selectedDiff, onFinish])
 
   // Gentle bubble physics + spawning loop
   useEffect(() => {
-    if (finished) return
+    if (phase !== 'playing') return
+    const diffMeta = BUBBLE_DIFFICULTIES.find((d) => d.id === selectedDiff) ?? BUBBLE_DIFFICULTIES[0]
     const stepMs = 50
     let spawnAcc = 0
 
@@ -128,16 +257,16 @@ export function BubblePop({
           .map((b) => ({ ...b, y: b.y - b.speed * dt }))
           .filter((b) => b.y > -12)
 
-        if (spawnAcc >= 750 && moved.length < 8) {
+        if (spawnAcc >= diffMeta.spawnMs && moved.length < diffMeta.maxCount) {
           spawnAcc = 0
-          moved.push(makeBubble(nextIdRef.current++))
+          moved.push(makeBubble(nextIdRef.current++, 104, diffMeta.speedMult))
         }
         return moved
       })
     }, stepMs)
 
     return () => window.clearInterval(loop)
-  }, [finished])
+  }, [phase, selectedDiff])
 
   const popBubble = (bubble: BubbleEntity) => {
     if (finishedRef.current) return
@@ -158,10 +287,38 @@ export function BubblePop({
     }, 550)
   }
 
+  const area = BUBBLE_AREAS.find((a) => a.id === selectedAreaId) ?? BUBBLE_AREAS[0]
+  const diffMeta = BUBBLE_DIFFICULTIES.find((d) => d.id === selectedDiff) ?? BUBBLE_DIFFICULTIES[0]
+
+  if (phase === 'setup') {
+    return (
+      <MiniGameSetupModal
+        rootId="game-bubble-pop"
+        title="Bubble Pop!"
+        subtitle={`Pick a difficulty and bubbly spot for ${catName}!`}
+        accentBorder="#7DD3FC"
+        iconBg="#E0F2FE"
+        iconBorder="#38BDF8"
+        icon={<SparklesIcon className="w-7 h-7" />}
+        difficulties={BUBBLE_DIFFICULTIES}
+        selectedDiff={selectedDiff}
+        beatenDifficulties={beatenDifficulties}
+        onSelectDiff={setSelectedDiff}
+        areas={BUBBLE_AREAS}
+        onStartArea={startRound}
+        onExit={onExit}
+        onButtonSound={onButtonSound}
+      />
+    )
+  }
+
   return (
     <div
       id="game-bubble-pop"
-      className="fixed inset-0 z-40 app-shell bg-gradient-to-b from-[#E0F7FF] via-[#F0F9FF] to-[#FFF6E5]"
+      className="fixed inset-0 z-40 app-shell"
+      style={{
+        background: `linear-gradient(180deg, ${area.skyTop} 0%, ${area.skyBottom} 100%)`,
+      }}
     >
       {/* Top Game HUD */}
       <header className="relative z-20 px-4 pt-3 pb-2 flex items-center justify-between gap-3 shrink-0">
@@ -203,7 +360,7 @@ export function BubblePop({
       {/* Bubble Play Stage */}
       <div className="relative flex-1 overflow-hidden touch-none">
         {/* Floating Bubbles */}
-        {!finished &&
+        {phase === 'playing' &&
           bubbles.map((b) => (
             <button
               key={b.id}
@@ -251,7 +408,10 @@ export function BubblePop({
         ))}
 
         {/* Playful Kitty Batting Along Floor */}
-        <div className="pointer-events-none absolute bottom-0 inset-x-0 h-20 bg-[#E6BE8A] border-t-4 border-[#C89B67]" />
+        <div
+          className="pointer-events-none absolute bottom-0 inset-x-0 h-20 border-t-4 border-[#C89B67]"
+          style={{ backgroundColor: area.groundColor }}
+        />
         <div
           className="pointer-events-none absolute bottom-3 -translate-x-1/2 transition-all duration-200 ease-out z-10"
           style={{ left: `${catX}%` }}
@@ -269,16 +429,16 @@ export function BubblePop({
         </div>
       </div>
 
-      {finished && (
+      {phase === 'finished' && (
         <MiniGameResultCard
-          gameTitle="Bubble Pop"
+          gameTitle={`Bubble Pop (${diffMeta.label})`}
           score={score}
           catName={catName}
           coat={coat}
           stage={stage}
           equippedAccessory={equippedAccessory}
           catStyle={catStyle}
-          onPlayAgain={restart}
+          onPlayAgain={() => setPhase('setup')}
           onBackHome={onExit}
         />
       )}

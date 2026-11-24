@@ -154,7 +154,7 @@ const DIFFICULTIES: Array<{
     baseScore: 7,
     accent: '#10B981',
     badgeBg: '#D1FAE5',
-    reqText: '4 Hiding Spots',
+    reqText: '4 Spots',
   },
   {
     id: 'medium',
@@ -163,7 +163,7 @@ const DIFFICULTIES: Array<{
     baseScore: 11,
     accent: '#F59E0B',
     badgeBg: '#FEF3C7',
-    reqText: 'Beat Easy first!',
+    reqText: '6 Spots',
   },
   {
     id: 'hard',
@@ -172,7 +172,7 @@ const DIFFICULTIES: Array<{
     baseScore: 15,
     accent: '#FB7185',
     badgeBg: '#FFE4E6',
-    reqText: 'Beat Medium first!',
+    reqText: '8 Spots',
   },
 ]
 

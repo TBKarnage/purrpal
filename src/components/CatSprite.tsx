@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import {
   ACCESSORY_CATALOG,
   DEFAULT_CAT_STYLE,
@@ -17,6 +18,7 @@ export type CatAnimationMode =
   | 'brushing'
   | 'wiggle'
   | 'zoomie'
+  | 'catnip'
   | 'headShake'
   | 'walking'
   | 'napping'
@@ -241,6 +243,8 @@ export function CatSprite({
   className = 'w-56 h-56',
   showThoughtBubble = true,
 }: CatSpriteProps) {
+  const rawUid = useId()
+  const furGradId = `fur-${coat}-${stage}-${rawUid.replace(/[^a-zA-Z0-9_-]/g, '')}`
   const p = COAT_PALETTES[coat]
   const g = STAGE_GEOMETRY[stage]
 
@@ -262,8 +266,9 @@ export function CatSprite({
   const eyeAcc = effectiveStyle.eyes
   const headAcc = effectiveStyle.head
 
-  const isSad = mood === 'sad'
-  const isNeedsCare = mood === 'needsCare'
+  const isZooming = animation === 'zoomie' || animation === 'catnip'
+  const isSad = mood === 'sad' && !isZooming
+  const isNeedsCare = mood === 'needsCare' && !isZooming
   const isDown = isSad || isNeedsCare
   const isNapping = animation === 'napping'
   const isBlissful =
@@ -272,6 +277,7 @@ export function CatSprite({
     animation === 'eating' ||
     animation === 'headShake'
   const isExcitedTail =
+    isZooming ||
     animation === 'petting' ||
     animation === 'brushing' ||
     animation === 'eating' ||
@@ -296,15 +302,17 @@ export function CatSprite({
           ? 'animate-cat-walk'
           : animation === 'napping'
             ? 'animate-cat-nap'
-            : animation === 'zoomie'
-              ? 'animate-cat-zoomie'
-              : animation === 'headShake'
-                ? ''
-                : isSad
-                  ? 'animate-cat-sad'
-                  : mood === 'thriving'
-                    ? 'animate-cat-happy'
-                    : 'animate-cat-breathe'
+            : animation === 'catnip'
+              ? 'animate-cat-catnip'
+              : animation === 'zoomie'
+                ? 'animate-cat-zoomie'
+                : animation === 'headShake'
+                  ? ''
+                  : isSad
+                    ? 'animate-cat-sad'
+                    : mood === 'thriving'
+                      ? 'animate-cat-happy'
+                      : 'animate-cat-breathe'
 
   const leftEarBaseX = g.headCx - g.earSpread
   const rightEarBaseX = g.headCx + g.earSpread
@@ -365,7 +373,7 @@ export function CatSprite({
         aria-label={`${coat} ${stage} cat`}
       >
         <defs>
-          <linearGradient id={`fur-${coat}-${stage}`} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={furGradId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={p.base} />
             <stop offset="100%" stopColor={p.baseDark} />
           </linearGradient>
@@ -440,7 +448,7 @@ export function CatSprite({
           {/* Body */}
           <path
             d={bodyPath}
-            fill={`url(#fur-${coat}-${stage})`}
+            fill={`url(#${furGradId})`}
             stroke={p.outline}
             strokeWidth="5.5"
             strokeLinejoin="round"
@@ -729,7 +737,7 @@ export function CatSprite({
             cy={g.headCy}
             rx={g.headRx}
             ry={g.headRy}
-            fill={`url(#fur-${coat}-${stage})`}
+            fill={`url(#${furGradId})`}
             stroke={p.outline}
             strokeWidth="5.5"
           />
@@ -812,13 +820,25 @@ export function CatSprite({
             </g>
           ) : (
             <g className="animate-eye-blink" style={{ transformOrigin: `${g.headCx}px ${g.eyeY}px` }}>
-              <ellipse cx={g.headCx - g.eyeOffsetX} cy={g.eyeY} rx={g.eyeRx} ry={g.eyeRy} fill={eyeFill} />
-              <circle cx={g.headCx - g.eyeOffsetX - 3.4} cy={g.eyeY - 4} r={isSad ? 4.4 : 3.8} fill="#FFFFFF" />
-              <circle cx={g.headCx - g.eyeOffsetX + 3.4} cy={g.eyeY + 4} r={isSad ? 2.4 : 1.8} fill="#FFFFFF" />
+              <ellipse
+                cx={g.headCx - g.eyeOffsetX}
+                cy={g.eyeY}
+                rx={animation === 'catnip' ? g.eyeRx * 1.18 : g.eyeRx}
+                ry={animation === 'catnip' ? g.eyeRy * 1.14 : g.eyeRy}
+                fill={eyeFill}
+              />
+              <circle cx={g.headCx - g.eyeOffsetX - 3.4} cy={g.eyeY - 4} r={animation === 'catnip' ? 4.6 : isSad ? 4.4 : 3.8} fill="#FFFFFF" />
+              <circle cx={g.headCx - g.eyeOffsetX + 3.4} cy={g.eyeY + 4} r={animation === 'catnip' ? 2.6 : isSad ? 2.4 : 1.8} fill="#FFFFFF" />
 
-              <ellipse cx={g.headCx + g.eyeOffsetX} cy={g.eyeY} rx={g.eyeRx} ry={g.eyeRy} fill={eyeFill} />
-              <circle cx={g.headCx + g.eyeOffsetX - 3.4} cy={g.eyeY - 4} r={isSad ? 4.4 : 3.8} fill="#FFFFFF" />
-              <circle cx={g.headCx + g.eyeOffsetX + 3.4} cy={g.eyeY + 4} r={isSad ? 2.4 : 1.8} fill="#FFFFFF" />
+              <ellipse
+                cx={g.headCx + g.eyeOffsetX}
+                cy={g.eyeY}
+                rx={animation === 'catnip' ? g.eyeRx * 1.18 : g.eyeRx}
+                ry={animation === 'catnip' ? g.eyeRy * 1.14 : g.eyeRy}
+                fill={eyeFill}
+              />
+              <circle cx={g.headCx + g.eyeOffsetX - 3.4} cy={g.eyeY - 4} r={animation === 'catnip' ? 4.6 : isSad ? 4.4 : 3.8} fill="#FFFFFF" />
+              <circle cx={g.headCx + g.eyeOffsetX + 3.4} cy={g.eyeY + 4} r={animation === 'catnip' ? 2.6 : isSad ? 2.4 : 1.8} fill="#FFFFFF" />
 
               {/* Soft worried / sad tilted eyelids & brows when Needs Care or Sad */}
               {isDown && (
@@ -948,6 +968,14 @@ export function CatSprite({
               fill="#FF7E96"
               stroke={p.outline}
               strokeWidth="3"
+            />
+          ) : animation === 'catnip' ? (
+            <path
+              d={`M ${g.headCx - 9} ${g.headCy + 19} Q ${g.headCx} ${g.headCy + 32} ${g.headCx + 9} ${g.headCy + 19} Z`}
+              fill="#FF7E96"
+              stroke={p.outline}
+              strokeWidth="3"
+              strokeLinejoin="round"
             />
           ) : isNapping ? (
             <path

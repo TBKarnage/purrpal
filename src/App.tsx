@@ -3,6 +3,7 @@ import { soundEngine } from './audio/soundEngine'
 import { ActionDock, type ActiveDockPanel } from './components/ActionDock'
 import { DressUpModal } from './components/DressUpModal'
 import { FeedDrawer } from './components/FeedDrawer'
+import { FeedbackModal } from './components/FeedbackModal'
 import { LevelUpModal } from './components/LevelUpModal'
 import { LivingRoom, type CleanToolMode } from './components/LivingRoom'
 import { OnboardingScreen } from './components/OnboardingScreen'
@@ -13,8 +14,15 @@ import { CatchTreats } from './minigames/CatchTreats'
 import { HideAndSeek } from './minigames/HideAndSeek'
 import { LaserChase } from './minigames/LaserChase'
 import { MiniGameHub } from './minigames/MiniGameHub'
+import { SkyHop } from './minigames/SkyHop'
 import { useGameState } from './state/useGameState'
-import type { FoodItem, HideSeekDifficulty, MiniGameId, RoomMess } from './types/game'
+import {
+  FOOD_CATALOG,
+  type FoodItem,
+  type MiniGameDifficulty,
+  type MiniGameId,
+  type RoomMess,
+} from './types/game'
 
 const PET_REWARD_COOLDOWN_MS = 2500
 
@@ -33,15 +41,19 @@ export function App() {
   const [activePanel, setActivePanel] = useState<ActiveDockPanel>('none')
   const [cleanTool, setCleanTool] = useState<CleanToolMode>('none')
   const [eatingFood, setEatingFood] = useState<FoodItem['id'] | null>(null)
+  const [catnipZoomie, setCatnipZoomie] = useState(false)
   const [headShakeActive, setHeadShakeActive] = useState(false)
   const [headShakeKey, setHeadShakeKey] = useState(0)
   const [speechBubble, setSpeechBubble] = useState<string | null>(null)
   const [showDressUp, setShowDressUp] = useState(false)
   const [showMiniGameHub, setShowMiniGameHub] = useState(false)
   const [showParentCorner, setShowParentCorner] = useState(false)
+  const [showFeedback, setShowFeedback] = useState(false)
   const [activeMiniGame, setActiveMiniGame] = useState<MiniGameId | null>(null)
 
   const eatingTimerRef = useRef<number | null>(null)
+  const catnipTimerRef = useRef<number | null>(null)
+  const catnipMidTimerRef = useRef<number | null>(null)
   const shakeTimerRef = useRef<number | null>(null)
   const bubbleTimerRef = useRef<number | null>(null)
   const lastPetRewardRef = useRef<number>(0)
@@ -66,11 +78,17 @@ export function App() {
     (
       gameId: MiniGameId,
       score: number,
-      hideSeekDifficulty?: HideSeekDifficulty,
+      difficulty?: MiniGameDifficulty,
     ) => {
       soundEngine.playLevelUp()
       dispatch(
-        { type: 'COMPLETE_MINIGAME', gameId, score, hideSeekDifficulty },
+        {
+          type: 'COMPLETE_MINIGAME',
+          gameId,
+          score,
+          difficulty,
+          hideSeekDifficulty: difficulty,
+        },
         true,
       )
     },
@@ -105,8 +123,11 @@ export function App() {
   }
 
   const handleFeed = (foodId: FoodItem['id']) => {
-    if (gameState.stats.hunger >= 100) {
-      // Kitty shakes its head "no" — tummy is already full, no food spent, no XP gained!
+    const food = FOOD_CATALOG.find((f) => f.id === foodId)
+    const isFull = gameState.stats.hunger >= 100
+
+    if (isFull && (!food || food.unlimited)) {
+      // Regular food stops at 100% — kitty shakes its head "no", no food spent, no XP gained!
       soundEngine.playHeadShake()
       setEatingFood(null)
       setHeadShakeActive(true)
@@ -121,7 +142,47 @@ export function App() {
 
     soundEngine.playCrunch()
     dispatch({ type: 'FEED', foodId }, true)
+
+    if (foodId === 'catnip') {
+      // Minimize the Feed drawer right away so you can watch the kitty zoom around the room!
+      setActivePanel('none')
+      setEatingFood(foodId)
+      setCatnipZoomie(false)
+      setSpeechBubble('Ooh, CATNIP!!')
+      if (eatingTimerRef.current !== null) window.clearTimeout(eatingTimerRef.current)
+      if (catnipTimerRef.current !== null) window.clearTimeout(catnipTimerRef.current)
+      if (catnipMidTimerRef.current !== null) window.clearTimeout(catnipMidTimerRef.current)
+      if (bubbleTimerRef.current !== null) window.clearTimeout(bubbleTimerRef.current)
+
+      eatingTimerRef.current = window.setTimeout(() => {
+        setEatingFood(null)
+        setCatnipZoomie(true)
+        setSpeechBubble('ZOOMIES!! WHEEE!')
+        soundEngine.playMeow(gameState.cat.stage)
+      }, 650)
+
+      catnipMidTimerRef.current = window.setTimeout(() => {
+        setSpeechBubble('NYOOOOM!! SO FAST!')
+        soundEngine.playGiggle()
+      }, 4200)
+
+      catnipTimerRef.current = window.setTimeout(() => {
+        setCatnipZoomie(false)
+        setSpeechBubble('Phew... best catnip ever!')
+      }, 8150)
+
+      bubbleTimerRef.current = window.setTimeout(() => {
+        setSpeechBubble(null)
+      }, 9650)
+      return
+    }
+
     setEatingFood(foodId)
+    if (isFull) {
+      setSpeechBubble('Ooh, an extra treat! Thank you!')
+      if (bubbleTimerRef.current !== null) window.clearTimeout(bubbleTimerRef.current)
+      bubbleTimerRef.current = window.setTimeout(() => setSpeechBubble(null), 1800)
+    }
     if (eatingTimerRef.current !== null) window.clearTimeout(eatingTimerRef.current)
     eatingTimerRef.current = window.setTimeout(() => {
       setEatingFood(null)
@@ -168,6 +229,7 @@ export function App() {
         <LivingRoom
           gameState={gameState}
           eatingFood={eatingFood}
+          catnipZoomie={catnipZoomie}
           headShakeActive={headShakeActive}
           headShakeKey={headShakeKey}
           speechBubble={speechBubble}
@@ -294,6 +356,27 @@ export function App() {
         />
       )}
 
+      {activeMiniGame === 'sky_hop' && (
+        <SkyHop
+          catName={gameState.cat.name}
+          coat={gameState.cat.coat}
+          stage={gameState.cat.stage}
+          equippedAccessory={gameState.cat.equippedAccessory}
+          catStyle={gameState.cat.style}
+          beatenDifficulties={gameState.miniGameBeaten?.sky_hop ?? []}
+          onCatchSound={() => soundEngine.playCatch()}
+          onPopSound={(combo) => soundEngine.playPop(combo)}
+          onButtonSound={() => soundEngine.playButton()}
+          onFinish={(score, difficulty) =>
+            handleMiniGameFinish('sky_hop', score, difficulty)
+          }
+          onExit={() => {
+            soundEngine.playButton()
+            setActiveMiniGame(null)
+          }}
+        />
+      )}
+
       {activeMiniGame === 'laser' && (
         <LaserChase
           catName={gameState.cat.name}
@@ -301,8 +384,12 @@ export function App() {
           stage={gameState.cat.stage}
           equippedAccessory={gameState.cat.equippedAccessory}
           catStyle={gameState.cat.style}
+          beatenDifficulties={gameState.miniGameBeaten?.laser ?? []}
           onCatchSound={() => soundEngine.playCatch()}
-          onFinish={(score) => handleMiniGameFinish('laser', score)}
+          onButtonSound={() => soundEngine.playButton()}
+          onFinish={(score, difficulty) =>
+            handleMiniGameFinish('laser', score, difficulty)
+          }
           onExit={() => {
             soundEngine.playButton()
             setActiveMiniGame(null)
@@ -317,8 +404,12 @@ export function App() {
           stage={gameState.cat.stage}
           equippedAccessory={gameState.cat.equippedAccessory}
           catStyle={gameState.cat.style}
+          beatenDifficulties={gameState.miniGameBeaten?.bubbles ?? []}
           onPopSound={(combo) => soundEngine.playPop(combo)}
-          onFinish={(score) => handleMiniGameFinish('bubbles', score)}
+          onButtonSound={() => soundEngine.playButton()}
+          onFinish={(score, difficulty) =>
+            handleMiniGameFinish('bubbles', score, difficulty)
+          }
           onExit={() => {
             soundEngine.playButton()
             setActiveMiniGame(null)
@@ -333,9 +424,13 @@ export function App() {
           stage={gameState.cat.stage}
           equippedAccessory={gameState.cat.equippedAccessory}
           catStyle={gameState.cat.style}
+          beatenDifficulties={gameState.miniGameBeaten?.treats ?? []}
           onCatchSound={() => soundEngine.playCatch()}
           onGiggleSound={() => soundEngine.playGiggle()}
-          onFinish={(score) => handleMiniGameFinish('treats', score)}
+          onButtonSound={() => soundEngine.playButton()}
+          onFinish={(score, difficulty) =>
+            handleMiniGameFinish('treats', score, difficulty)
+          }
           onExit={() => {
             soundEngine.playButton()
             setActiveMiniGame(null)
@@ -374,6 +469,22 @@ export function App() {
         />
       )}
 
+      {/* Kid-Friendly Bug Reports & Feature Requests */}
+      {showFeedback && (
+        <FeedbackModal
+          gameState={gameState}
+          onSubmitReport={(report) => {
+            soundEngine.playLevelUp()
+            dispatch({ type: 'ADD_FEEDBACK_REPORT', report }, true)
+          }}
+          onButtonSound={() => soundEngine.playButton()}
+          onClose={() => {
+            soundEngine.playButton()
+            setShowFeedback(false)
+          }}
+        />
+      )}
+
       {/* Parent Corner (3-second press-and-hold gate) */}
       {showParentCorner && (
         <ParentCornerModal
@@ -393,6 +504,15 @@ export function App() {
             setShowMiniGameHub(false)
             setActiveMiniGame(null)
             await resetKitty()
+          }}
+          onOpenFeedback={() => {
+            soundEngine.playButton()
+            setShowParentCorner(false)
+            setShowFeedback(true)
+          }}
+          onClearReports={() => {
+            soundEngine.playButton()
+            dispatch({ type: 'CLEAR_FEEDBACK_REPORTS' }, true)
           }}
           onClose={() => {
             soundEngine.playButton()

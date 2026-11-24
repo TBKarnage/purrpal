@@ -103,6 +103,28 @@ export function MiniGameHub({
 }
 
 function GameArt({ id }: { id: MiniGameId }) {
+  if (id === 'sky_hop') {
+    return (
+      <svg viewBox="0 0 64 64" className="w-16 h-16" aria-hidden="true">
+        {/* Soft lavender sky */}
+        <circle cx="32" cy="32" r="26" fill="#EDE9FE" />
+        {/* Sparkle stars */}
+        <circle cx="16" cy="18" r="2.2" fill="#FBBF24" />
+        <circle cx="50" cy="22" r="2" fill="#FBBF24" />
+        {/* Happy hopping kitty */}
+        <polygon points="22,22 25,12 31,20" fill="#FDBA74" stroke="#9A3412" strokeWidth="2" strokeLinejoin="round" />
+        <polygon points="42,22 39,12 33,20" fill="#FDBA74" stroke="#9A3412" strokeWidth="2" strokeLinejoin="round" />
+        <circle cx="32" cy="26" r="10" fill="#FDBA74" stroke="#9A3412" strokeWidth="2" />
+        <circle cx="28.5" cy="24.5" r="1.8" fill="#431407" />
+        <circle cx="35.5" cy="24.5" r="1.8" fill="#431407" />
+        {/* Fluffy cloud platform below */}
+        <ellipse cx="32" cy="46" rx="18" ry="7.5" fill="#FFFFFF" stroke="#8B5CF6" strokeWidth="2.2" />
+        <circle cx="23" cy="43" r="6" fill="#FFFFFF" />
+        <circle cx="35" cy="41.5" r="7" fill="#FFFFFF" />
+      </svg>
+    )
+  }
+
   if (id === 'hide_seek') {
     return (
       <svg viewBox="0 0 64 64" className="w-16 h-16" aria-hidden="true">

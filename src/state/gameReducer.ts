@@ -1,3 +1,4 @@
+import { APP_DEFAULT_SETTINGS } from '../config/appDefaults'
 import {
   ACCESSORY_CATALOG,
   DECOR_CATALOG,
@@ -8,11 +9,13 @@ import {
   type AccessorySlot,
   type CatStyleConfig,
   type CoatStyle,
+  type FeedbackReport,
   type FoodItem,
   type GameState,
   type GrowthStage,
   type HideSeekDifficulty,
   type LevelUpEvent,
+  type MiniGameDifficulty,
   type MiniGameId,
 } from '../types/game'
 import {
@@ -24,15 +27,14 @@ import {
   createRoomMess,
 } from './timeDecay'
 
-export function isHideSeekDifficultyUnlocked(
-  beaten: readonly HideSeekDifficulty[] | undefined,
-  difficulty: HideSeekDifficulty,
+export function isMiniGameDifficultyUnlocked(
+  _beaten?: readonly MiniGameDifficulty[] | undefined,
+  _difficulty?: MiniGameDifficulty,
 ): boolean {
-  if (difficulty === 'easy') return true
-  const cleared = new Set(beaten ?? [])
-  if (difficulty === 'medium') return cleared.has('easy')
-  return cleared.has('medium')
+  return true
 }
+
+export const isHideSeekDifficultyUnlocked = isMiniGameDifficultyUnlocked
 
 export function xpRequiredForLevel(level: number): number {
   const safeLevel = Math.max(1, Math.floor(level))
@@ -116,11 +118,16 @@ export function createInitialGameState(
     },
     settings: {
       soundEnabled: true,
-      unlockAllMiniGames: false,
+      unlockAllMiniGames: APP_DEFAULT_SETTINGS.unlockAllMiniGames,
+      parentWebhookUrl: APP_DEFAULT_SETTINGS.parentWebhookUrl || undefined,
+      parentEmail: APP_DEFAULT_SETTINGS.parentEmail || undefined,
+      parentPin: APP_DEFAULT_SETTINGS.parentPin || '1234',
     },
     tutorialStep: 0,
     feedsSinceMess: 0,
     hideSeekBeaten: [],
+    miniGameBeaten: {},
+    feedbackReports: [],
   }
 }
 
@@ -236,6 +243,7 @@ export type GameAction =
       type: 'COMPLETE_MINIGAME'
       gameId: MiniGameId
       score: number
+      difficulty?: MiniGameDifficulty
       hideSeekDifficulty?: HideSeekDifficulty
       now?: number
     }
@@ -246,6 +254,8 @@ export type GameAction =
   | { type: 'TOGGLE_DECOR'; decorId: string; now?: number }
   | { type: 'TICK_TIME'; now?: number }
   | { type: 'UPDATE_SETTINGS'; settings: Partial<GameState['settings']>; now?: number }
+  | { type: 'ADD_FEEDBACK_REPORT'; report: FeedbackReport; now?: number }
+  | { type: 'CLEAR_FEEDBACK_REPORTS'; now?: number }
   | { type: 'SET_TUTORIAL_STEP'; step: number; now?: number }
   | { type: 'SPAWN_MESS'; now?: number }
   | { type: 'GRANT_XP'; amount: number; now?: number }
@@ -259,12 +269,13 @@ export function reduceGameState(
 
   switch (action.type) {
     case 'FEED': {
-      // Kitty is already full — do not consume food/coins or grant free XP
-      if (state.stats.hunger >= 100) return { state, levelUp: null }
-
       const food = FOOD_CATALOG.find((f) => f.id === action.foodId)
       if (!food) return { state, levelUp: null }
       if (food.unlockLevel > state.cat.level) return { state, levelUp: null }
+
+      const isFull = state.stats.hunger >= 100
+      // Regular free food stops working when tummy is 100% full (no free XP)
+      if (isFull && food.unlimited) return { state, levelUp: null }
 
       let coins = state.inventory.coins
       const treats = { ...state.inventory.treats }
@@ -293,6 +304,8 @@ export function reduceGameState(
         }
       }
 
+      const xpAward = isFull ? 2 : food.xpGain
+
       const updated: GameState = {
         ...state,
         lastSavedAt: now,
@@ -314,7 +327,7 @@ export function reduceGameState(
         feedsSinceMess: nextFeedsSinceMess,
       }
 
-      return applyXpGain(updated, food.xpGain, now)
+      return applyXpGain(updated, xpAward, now)
     }
 
     case 'CLEAN_MESS': {
@@ -388,12 +401,23 @@ export function reduceGameState(
       const xpGain = Math.min(35, 15 + safeScore * 2)
       const coinsGain = 10 + safeScore * 2
 
-      const nextBeaten =
-        action.gameId === 'hide_seek' && action.hideSeekDifficulty
-          ? Array.from(
-              new Set([...(state.hideSeekBeaten ?? []), action.hideSeekDifficulty]),
-            )
-          : state.hideSeekBeaten
+      const beatenDiff = action.difficulty ?? action.hideSeekDifficulty
+      const existingForGame =
+        state.miniGameBeaten?.[action.gameId] ??
+        (action.gameId === 'hide_seek' ? (state.hideSeekBeaten ?? []) : [])
+      const nextForGame = beatenDiff
+        ? Array.from(new Set([...existingForGame, beatenDiff]))
+        : existingForGame
+
+      const nextMiniGameBeaten = beatenDiff
+        ? {
+            ...(state.miniGameBeaten ?? {}),
+            [action.gameId]: nextForGame,
+          }
+        : state.miniGameBeaten
+
+      const nextHideSeekBeaten =
+        action.gameId === 'hide_seek' ? nextForGame : state.hideSeekBeaten
 
       const updated: GameState = {
         ...state,
@@ -407,7 +431,8 @@ export function reduceGameState(
           coins: state.inventory.coins + coinsGain,
         },
         tutorialStep: state.tutorialStep === 2 ? 3 : state.tutorialStep,
-        hideSeekBeaten: nextBeaten,
+        hideSeekBeaten: nextHideSeekBeaten,
+        miniGameBeaten: nextMiniGameBeaten,
       }
       return applyXpGain(updated, xpGain, now)
     }
@@ -546,6 +571,28 @@ export function reduceGameState(
             ...state.settings,
             ...action.settings,
           },
+        },
+        levelUp: null,
+      }
+    }
+
+    case 'ADD_FEEDBACK_REPORT': {
+      return {
+        state: {
+          ...state,
+          lastSavedAt: now,
+          feedbackReports: [action.report, ...(state.feedbackReports ?? [])].slice(0, 50),
+        },
+        levelUp: null,
+      }
+    }
+
+    case 'CLEAR_FEEDBACK_REPORTS': {
+      return {
+        state: {
+          ...state,
+          lastSavedAt: now,
+          feedbackReports: [],
         },
         levelUp: null,
       }

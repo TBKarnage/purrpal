@@ -1,8 +1,12 @@
+import { APP_DEFAULT_SETTINGS } from '../config/appDefaults'
 import type {
   CoatStyle,
+  FeedbackReport,
   GameState,
   HideSeekDifficulty,
   MessType,
+  MiniGameDifficulty,
+  MiniGameId,
   RoomMess,
 } from '../types/game'
 import {
@@ -168,6 +172,8 @@ export function validateAndNormalizeGameState(raw: unknown): GameState | null {
       : 0
 
   const validDiffs = new Set<HideSeekDifficulty>(['easy', 'medium', 'hard'])
+  const validGames = new Set<MiniGameId>(['laser', 'hide_seek', 'sky_hop', 'bubbles', 'treats'])
+
   const hideSeekBeaten = Array.isArray(raw.hideSeekBeaten)
     ? Array.from(
         new Set(
@@ -177,6 +183,50 @@ export function validateAndNormalizeGameState(raw: unknown): GameState | null {
           ),
         ),
       )
+    : []
+
+  const miniGameBeaten: Partial<Record<MiniGameId, MiniGameDifficulty[]>> = {}
+  if (isRecord(raw.miniGameBeaten)) {
+    for (const [k, val] of Object.entries(raw.miniGameBeaten)) {
+      if (validGames.has(k as MiniGameId) && Array.isArray(val)) {
+        const cleaned = Array.from(
+          new Set(
+            val.filter(
+              (d): d is MiniGameDifficulty =>
+                typeof d === 'string' && validDiffs.has(d as MiniGameDifficulty),
+            ),
+          ),
+        )
+        if (cleaned.length > 0) {
+          miniGameBeaten[k as MiniGameId] = cleaned
+        }
+      }
+    }
+  }
+  if (hideSeekBeaten.length > 0 && !miniGameBeaten.hide_seek) {
+    miniGameBeaten.hide_seek = hideSeekBeaten
+  }
+
+  const feedbackReports: FeedbackReport[] = Array.isArray(raw.feedbackReports)
+    ? raw.feedbackReports
+        .filter((r): r is Record<string, unknown> => isRecord(r))
+        .slice(0, 50)
+        .map((r, idx) => ({
+          id: typeof r.id === 'string' ? r.id : `fb_${idx}`,
+          kind: r.kind === 'request' ? 'request' : 'bug',
+          createdAt:
+            typeof r.createdAt === 'number' && Number.isFinite(r.createdAt)
+              ? r.createdAt
+              : Date.now(),
+          catName: typeof r.catName === 'string' ? r.catName.slice(0, 16) : rawName.slice(0, 16),
+          catLevel:
+            typeof r.catLevel === 'number' && Number.isFinite(r.catLevel) ? r.catLevel : level,
+          activity: typeof r.activity === 'string' ? r.activity : undefined,
+          symptom: typeof r.symptom === 'string' ? r.symptom : undefined,
+          message: typeof r.message === 'string' ? r.message.slice(0, 600) : '',
+          usedVoice: typeof r.usedVoice === 'boolean' ? r.usedVoice : undefined,
+          sentToWebhook: typeof r.sentToWebhook === 'boolean' ? r.sentToWebhook : undefined,
+        }))
     : []
 
   return {
@@ -218,11 +268,25 @@ export function validateAndNormalizeGameState(raw: unknown): GameState | null {
       unlockAllMiniGames:
         typeof raw.settings.unlockAllMiniGames === 'boolean'
           ? raw.settings.unlockAllMiniGames
-          : false,
+          : APP_DEFAULT_SETTINGS.unlockAllMiniGames,
+      parentWebhookUrl:
+        typeof raw.settings.parentWebhookUrl === 'string' && raw.settings.parentWebhookUrl.trim()
+          ? raw.settings.parentWebhookUrl.slice(0, 300)
+          : APP_DEFAULT_SETTINGS.parentWebhookUrl || undefined,
+      parentEmail:
+        typeof raw.settings.parentEmail === 'string' && raw.settings.parentEmail.trim()
+          ? raw.settings.parentEmail.slice(0, 120)
+          : APP_DEFAULT_SETTINGS.parentEmail || undefined,
+      parentPin:
+        typeof raw.settings.parentPin === 'string' && raw.settings.parentPin.trim()
+          ? raw.settings.parentPin.slice(0, 12)
+          : APP_DEFAULT_SETTINGS.parentPin || '1234',
     },
     tutorialStep,
     feedsSinceMess,
     hideSeekBeaten,
+    miniGameBeaten,
+    feedbackReports,
   }
 }
 

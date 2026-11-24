@@ -91,6 +91,7 @@ interface FloatingParticle {
 interface LivingRoomProps {
   gameState: GameState
   eatingFood: FoodItem['id'] | null
+  catnipZoomie?: boolean
   headShakeActive?: boolean
   headShakeKey?: number
   speechBubble?: string | null
@@ -108,6 +109,7 @@ interface LivingRoomProps {
 export function LivingRoom({
   gameState,
   eatingFood,
+  catnipZoomie = false,
   headShakeActive = false,
   headShakeKey = 0,
   speechBubble = null,
@@ -137,6 +139,7 @@ export function LivingRoom({
   const [pettingActive, setPettingActive] = useState(false)
   const [brushingActive, setBrushingActive] = useState(false)
   const [zoomieActive, setZoomieActive] = useState(false)
+  const [catnipSpot, setCatnipSpot] = useState<{ x: number; bottomPx: number } | null>(null)
 
   // Autonomous room roaming & prop interaction state
   const [spotId, setSpotId] = useState<RoomSpotId>('rug_center')
@@ -148,9 +151,11 @@ export function LivingRoom({
 
   const particleIdRef = useRef(1)
   const lastBrushTickRef = useRef(0)
-  const animTimerRef = useRef<number | null>(null)
+  const petTimerRef = useRef<number | null>(null)
+  const brushTimerRef = useRef<number | null>(null)
   const walkTimerRef = useRef<number | null>(null)
   const captionTimerRef = useRef<number | null>(null)
+  const roamAnimTimerRef = useRef<number | null>(null)
   const sweptIdsRef = useRef<Set<string>>(new Set())
   const spotIdRef = useRef<RoomSpotId>('rug_center')
   const roomRef = useRef<HTMLDivElement | null>(null)
@@ -214,6 +219,7 @@ export function LivingRoom({
 
       if (walkTimerRef.current !== null) window.clearTimeout(walkTimerRef.current)
       if (captionTimerRef.current !== null) window.clearTimeout(captionTimerRef.current)
+      if (roamAnimTimerRef.current !== null) window.clearTimeout(roamAnimTimerRef.current)
 
       const dx = target.x - current.x
       if (dx < -1) setFacing('left')
@@ -225,17 +231,26 @@ export function LivingRoom({
       setRoamActivity('idle')
       setRoamCaption(null)
 
+      const triggerArrivalActivity = () => {
+        setRoamActivity(target.activity)
+        if (target.activity === 'playing' || target.activity === 'sniffing') {
+          roamAnimTimerRef.current = window.setTimeout(() => {
+            setRoamActivity('idle')
+          }, 2400)
+        }
+        if (announce && target.caption) {
+          setRoamCaption(target.caption)
+          captionTimerRef.current = window.setTimeout(() => setRoamCaption(null), 2400)
+        }
+      }
+
       const needsWalk = Math.abs(dx) > 1 || Math.abs(target.bottomPx - current.bottomPx) > 4
       if (needsWalk) {
         setIsWalking(true)
         walkTimerRef.current = window.setTimeout(() => {
           setIsWalking(false)
           if (target.preferredFacing) setFacing(target.preferredFacing)
-          setRoamActivity(target.activity)
-          if (announce && target.caption) {
-            setRoamCaption(target.caption)
-            captionTimerRef.current = window.setTimeout(() => setRoamCaption(null), 2400)
-          }
+          triggerArrivalActivity()
           if (target.activity === 'playing' || target.activity === 'sniffing') {
             const anchor = getKittyAnchorPercent(0.5, 0.25)
             spawnParticle(anchor.x, anchor.y, 'sparkle')
@@ -243,11 +258,7 @@ export function LivingRoom({
         }, 1550)
       } else {
         setIsWalking(false)
-        setRoamActivity(target.activity)
-        if (announce && target.caption) {
-          setRoamCaption(target.caption)
-          captionTimerRef.current = window.setTimeout(() => setRoamCaption(null), 2400)
-        }
+        triggerArrivalActivity()
       }
     },
     [getKittyAnchorPercent, spawnParticle],
@@ -256,18 +267,80 @@ export function LivingRoom({
   // Clean up timers on unmount
   useEffect(() => {
     return () => {
-      if (animTimerRef.current !== null) window.clearTimeout(animTimerRef.current)
+      if (petTimerRef.current !== null) window.clearTimeout(petTimerRef.current)
+      if (brushTimerRef.current !== null) window.clearTimeout(brushTimerRef.current)
       if (walkTimerRef.current !== null) window.clearTimeout(walkTimerRef.current)
       if (captionTimerRef.current !== null) window.clearTimeout(captionTimerRef.current)
+      if (roamAnimTimerRef.current !== null) window.clearTimeout(roamAnimTimerRef.current)
     }
   }, [])
 
+  // Energetic room-wide catnip zoomies: kitty sprints all around the room!
+  useEffect(() => {
+    if (!catnipZoomie) return
+
+    if (walkTimerRef.current !== null) window.clearTimeout(walkTimerRef.current)
+
+    const waypoints: Array<{ x: number; bottomPx: number }> = [
+      { x: 78, bottomPx: 128 },
+      { x: 22, bottomPx: 152 },
+      { x: 76, bottomPx: 184 },
+      { x: 24, bottomPx: 116 },
+      { x: 80, bottomPx: 158 },
+      { x: 20, bottomPx: 176 },
+      { x: 75, bottomPx: 118 },
+      { x: 25, bottomPx: 144 },
+      { x: 78, bottomPx: 168 },
+      { x: 22, bottomPx: 124 },
+      { x: 76, bottomPx: 136 },
+      { x: 26, bottomPx: 162 },
+      { x: 72, bottomPx: 120 },
+      { x: 50, bottomPx: 112 },
+    ]
+
+    let step = 0
+    let prevX = ROOM_SPOTS[spotIdRef.current]?.x ?? 50
+
+    const advanceDash = () => {
+      if (step === 0) {
+        setIsWalking(false)
+        setRoamActivity('idle')
+        setRoamCaption(null)
+      }
+      const next = waypoints[step % waypoints.length]
+      setFacing(next.x < prevX ? 'left' : 'right')
+      prevX = next.x
+      setCatnipSpot(next)
+
+      const anchor = getKittyAnchorPercent(0.5, 0.45)
+      spawnParticle(
+        anchor.x + (Math.random() * 8 - 4),
+        anchor.y + (Math.random() * 6 - 3),
+        step % 2 === 0 ? 'sparkle' : 'heart',
+      )
+      step += 1
+    }
+
+    const kickoff = window.setTimeout(advanceDash, 16)
+    const timer = window.setInterval(advanceDash, 520)
+
+    return () => {
+      window.clearTimeout(kickoff)
+      window.clearInterval(timer)
+      spotIdRef.current = 'rug_center'
+      window.setTimeout(() => {
+        setCatnipSpot(null)
+        setSpotId('rug_center')
+      }, 0)
+    }
+  }, [catnipZoomie, getKittyAnchorPercent, spawnParticle])
+
   // Autonomous room roaming & prop interactions
   useEffect(() => {
-    if (showFeedTray || showCleanTray || eatingFood || headShakeActive) return
+    if (showFeedTray || showCleanTray || eatingFood || headShakeActive || catnipZoomie) return
 
     const interval = window.setInterval(() => {
-      if (pettingActive || brushingActive || zoomieActive) return
+      if (pettingActive || brushingActive || zoomieActive || catnipZoomie) return
 
       // Sad kitties roam slowly and stay close to the cozy rug
       if (mood === 'sad') {
@@ -300,6 +373,7 @@ export function LivingRoom({
     showCleanTray,
     eatingFood,
     headShakeActive,
+    catnipZoomie,
     pettingActive,
     brushingActive,
     zoomieActive,
@@ -355,15 +429,16 @@ export function LivingRoom({
   }, [mood, getKittyAnchorPercent, spawnParticle])
 
   const triggerKittyAnimation = (kind: 'petting' | 'brushing') => {
-    if (animTimerRef.current !== null) window.clearTimeout(animTimerRef.current)
     setRoamActivity('idle')
     setRoamCaption(null)
     if (kind === 'petting') {
+      if (petTimerRef.current !== null) window.clearTimeout(petTimerRef.current)
       setPettingActive(true)
-      animTimerRef.current = window.setTimeout(() => setPettingActive(false), 750)
+      petTimerRef.current = window.setTimeout(() => setPettingActive(false), 750)
     } else {
+      if (brushTimerRef.current !== null) window.clearTimeout(brushTimerRef.current)
       setBrushingActive(true)
-      animTimerRef.current = window.setTimeout(() => setBrushingActive(false), 850)
+      brushTimerRef.current = window.setTimeout(() => setBrushingActive(false), 850)
     }
   }
 
@@ -437,32 +512,37 @@ export function LivingRoom({
 
   // Lift & center kitty smoothly whenever Feed or Clean panel is open so nothing ever overlaps!
   const drawerActive = showFeedTray || showCleanTray
-  const effectiveX = drawerActive ? 50 : activeSpot.x
+  const activeCatnipSpot = catnipZoomie ? catnipSpot : null
+  const effectiveX = drawerActive ? 50 : activeCatnipSpot ? activeCatnipSpot.x : activeSpot.x
   const effectiveBottomPx = showFeedTray
     ? 282
     : showCleanTray
       ? cleanTool === 'sweep'
         ? 172
         : 152
-      : activeSpot.bottomPx
+      : activeCatnipSpot
+        ? activeCatnipSpot.bottomPx
+        : activeSpot.bottomPx
 
   const activeAnim: CatAnimationMode = headShakeActive
     ? 'headShake'
     : eatingFood
       ? 'eating'
-      : brushingActive
-        ? 'brushing'
-        : pettingActive
-          ? 'petting'
-          : zoomieActive
-            ? 'zoomie'
-            : isWalking && !drawerActive
-              ? 'walking'
-              : !drawerActive && roamActivity === 'napping'
-                ? 'napping'
-                : !drawerActive && (roamActivity === 'playing' || roamActivity === 'sniffing')
-                  ? 'playing'
-                  : 'idle'
+      : catnipZoomie
+        ? 'catnip'
+        : zoomieActive
+          ? 'zoomie'
+          : brushingActive
+            ? 'brushing'
+            : pettingActive
+              ? 'petting'
+              : isWalking && !drawerActive
+                ? 'walking'
+                : !drawerActive && roamActivity === 'napping'
+                  ? 'napping'
+                  : !drawerActive && (roamActivity === 'playing' || roamActivity === 'sniffing')
+                    ? 'playing'
+                    : 'idle'
 
   const effectiveSpeech = speechBubble ?? (!drawerActive && !isWalking ? roamCaption : null)
   const plantRustling = !drawerActive && !isWalking && resolvedSpotId === 'plant'
@@ -845,7 +925,7 @@ export function LivingRoom({
           bottom: `${effectiveBottomPx}px`,
         }}
         className={`absolute -translate-x-1/2 transition-[left,bottom] ease-in-out ${
-          drawerActive ? 'duration-300' : 'duration-[1500ms]'
+          catnipZoomie ? 'duration-[470ms]' : drawerActive ? 'duration-300' : 'duration-[1500ms]'
         } ${cleanTool === 'sweep' ? 'z-10 pointer-events-none' : 'z-15'}`}
       >
         <div

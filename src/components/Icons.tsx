@@ -230,6 +230,35 @@ export function FoodIcon({ foodId, className = 'w-12 h-12' }: { foodId: FoodItem
           <path d="M36 17 C40 23 41 30 38 37" fill="none" stroke="#FFE4E6" strokeWidth="3.2" strokeLinecap="round" />
         </svg>
       )
+    case 'catnip':
+      return (
+        <svg viewBox="0 0 56 56" className={className} aria-hidden="true">
+          {/* Cute green catnip leaves & sparkle */}
+          <path
+            d="M28 46 C28 32 16 20 14 14 C22 14 30 22 30 34 Z"
+            fill="#4ADE80"
+            stroke="#166534"
+            strokeWidth="2.8"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M28 46 C28 32 40 20 42 14 C34 14 26 22 26 34 Z"
+            fill="#34D399"
+            stroke="#166534"
+            strokeWidth="2.8"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M28 46 C28 30 28 16 28 9 C34 15 35 28 28 46 Z"
+            fill="#86EFAC"
+            stroke="#166534"
+            strokeWidth="2.6"
+            strokeLinejoin="round"
+          />
+          <circle cx="14" cy="30" r="2.5" fill="#FBBF24" />
+          <circle cx="43" cy="28" r="2.2" fill="#FBBF24" />
+        </svg>
+      )
   }
 }
 

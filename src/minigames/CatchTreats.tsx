@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { CatSprite } from '../components/CatSprite'
 import { FoodIcon, PlayYarnIcon, StarIcon } from '../components/Icons'
-import type { CatStyleConfig, CoatStyle, GrowthStage } from '../types/game'
+import type {
+  CatStyleConfig,
+  CoatStyle,
+  GrowthStage,
+  MiniGameDifficulty,
+} from '../types/game'
 import { MiniGameResultCard } from './MiniGameResultCard'
+import { MiniGameSetupModal, type PlayAreaOption } from './MiniGameSetupModal'
 
 const GAME_DURATION_SEC = 30
 
@@ -12,9 +18,11 @@ interface CatchTreatsProps {
   stage: GrowthStage
   equippedAccessory: string | null
   catStyle?: CatStyleConfig
+  beatenDifficulties: readonly MiniGameDifficulty[]
   onCatchSound?: () => void
   onGiggleSound?: () => void
-  onFinish: (score: number) => void
+  onButtonSound?: () => void
+  onFinish: (score: number, difficulty: MiniGameDifficulty) => void
   onExit: () => void
 }
 
@@ -34,7 +42,96 @@ interface CatchPop {
   isGiggle?: boolean
 }
 
-function createFallingItem(id: number): FallingItem {
+const TREAT_AREAS: PlayAreaOption[] = [
+  {
+    id: 'kitchen',
+    name: 'Cozy Kitchen',
+    tagline: 'Warm tiles & falling snacks',
+    accent: '#F59E0B',
+    skyTop: '#FFF7E6',
+    skyBottom: '#FFECD0',
+    groundColor: '#D9A773',
+    icon: <FoodIcon foodId="treat" className="w-12 h-12" />,
+  },
+  {
+    id: 'meadow',
+    name: 'Picnic Meadow',
+    tagline: 'Sunny breeze & tasty treats',
+    accent: '#10B981',
+    skyTop: '#BAE6FD',
+    skyBottom: '#DCFCE7',
+    groundColor: '#4ADE80',
+    icon: <FoodIcon foodId="salmon" className="w-12 h-12" />,
+  },
+  {
+    id: 'market',
+    name: 'Fish Market',
+    tagline: 'Fresh salmon & yarn surprises',
+    accent: '#38BDF8',
+    skyTop: '#E0F2FE',
+    skyBottom: '#BAE6FD',
+    groundColor: '#E6BE8A',
+    icon: <PlayYarnIcon className="w-12 h-12" />,
+  },
+  {
+    id: 'pier',
+    name: 'Sunset Pier',
+    tagline: 'Golden sky by the boardwalk',
+    accent: '#FB7185',
+    skyTop: '#FDE68A',
+    skyBottom: '#FECDD3',
+    groundColor: '#C78F57',
+    icon: <StarIcon className="w-12 h-12" />,
+  },
+]
+
+const TREAT_DIFFICULTIES: Array<{
+  id: MiniGameDifficulty
+  label: string
+  hint: string
+  accent: string
+  badgeBg: string
+  reqText: string
+  speedMult: number
+  spawnMs: number
+  maxCount: number
+}> = [
+  {
+    id: 'easy',
+    label: 'Easy',
+    hint: 'Gentle drop',
+    accent: '#10B981',
+    badgeBg: '#D1FAE5',
+    reqText: 'Unlocked!',
+    speedMult: 0.85,
+    spawnMs: 950,
+    maxCount: 5,
+  },
+  {
+    id: 'medium',
+    label: 'Medium',
+    hint: 'Breezy drop',
+    accent: '#F59E0B',
+    badgeBg: '#FEF3C7',
+    reqText: 'Beat Easy first!',
+    speedMult: 1.15,
+    spawnMs: 780,
+    maxCount: 6,
+  },
+  {
+    id: 'hard',
+    label: 'Hard',
+    hint: 'Treat shower!',
+    accent: '#FB7185',
+    badgeBg: '#FFE4E6',
+    reqText: 'Beat Medium first!',
+    speedMult: 1.45,
+    spawnMs: 600,
+    maxCount: 8,
+  },
+]
+
+function createFallingItem(id: number, speedMult = 1): FallingItem {
   const roll = Math.random()
   const kind: FallingItem['kind'] =
     roll < 0.22 ? 'yarn' : roll < 0.52 ? 'salmon' : 'treat'
@@ -42,7 +139,7 @@ function createFallingItem(id: number): FallingItem {
     id,
     x: 12 + Math.random() * 76,
     y: -6,
-    speed: 24 + Math.random() * 11,
+    speed: (24 + Math.random() * 11) * speedMult,
     kind,
   }
 }
@@ -53,18 +150,21 @@ export function CatchTreats({
   stage,
   equippedAccessory,
   catStyle,
+  beatenDifficulties,
   onCatchSound,
   onGiggleSound,
+  onButtonSound,
   onFinish,
   onExit,
 }: CatchTreatsProps) {
+  const [phase, setPhase] = useState<'setup' | 'playing' | 'finished'>('setup')
+  const [selectedDiff, setSelectedDiff] = useState<MiniGameDifficulty>('easy')
+  const [selectedAreaId, setSelectedAreaId] = useState<string>('kitchen')
+
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION_SEC)
   const [score, setScore] = useState(0)
-  const [finished, setFinished] = useState(false)
   const [catX, setCatX] = useState(50)
-  const [items, setItems] = useState<FallingItem[]>(() => [
-    { id: 1, x: 50, y: 12, speed: 26, kind: 'salmon' },
-  ])
+  const [items, setItems] = useState<FallingItem[]>([])
   const [giggling, setGiggling] = useState(false)
   const [pops, setPops] = useState<CatchPop[]>([])
 
@@ -81,30 +181,37 @@ export function CatchTreats({
     setCatX(clamped)
   }
 
-  const restart = useCallback(() => {
-    scoreRef.current = 0
-    finishedRef.current = false
-    catXRef.current = 50
-    setScore(0)
-    setCatX(50)
-    setTimeLeft(GAME_DURATION_SEC)
-    setFinished(false)
-    setGiggling(false)
-    setPops([])
-    setItems([{ id: nextIdRef.current++, x: 50, y: 10, speed: 26, kind: 'salmon' }])
-  }, [])
+  const startRound = useCallback(
+    (areaId: string, diff: MiniGameDifficulty) => {
+      onButtonSound?.()
+      const diffMeta = TREAT_DIFFICULTIES.find((d) => d.id === diff) ?? TREAT_DIFFICULTIES[0]
+      scoreRef.current = 0
+      finishedRef.current = false
+      catXRef.current = 50
+      setSelectedAreaId(areaId)
+      setSelectedDiff(diff)
+      setScore(0)
+      setCatX(50)
+      setTimeLeft(GAME_DURATION_SEC)
+      setGiggling(false)
+      setPops([])
+      setItems([{ id: nextIdRef.current++, x: 50, y: 10, speed: 26 * diffMeta.speedMult, kind: 'salmon' }])
+      setPhase('playing')
+    },
+    [onButtonSound],
+  )
 
   // 30-second countdown timer
   useEffect(() => {
-    if (finished) return
+    if (phase !== 'playing') return
     const timer = window.setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           window.clearInterval(timer)
           if (!finishedRef.current) {
             finishedRef.current = true
-            setFinished(true)
-            onFinish(scoreRef.current)
+            setPhase('finished')
+            onFinish(scoreRef.current, selectedDiff)
           }
           return 0
         }
@@ -112,11 +219,12 @@ export function CatchTreats({
       })
     }, 1000)
     return () => window.clearInterval(timer)
-  }, [finished, onFinish])
+  }, [phase, selectedDiff, onFinish])
 
   // Falling treats & generous catch detection loop
   useEffect(() => {
-    if (finished) return
+    if (phase !== 'playing') return
+    const diffMeta = TREAT_DIFFICULTIES.find((d) => d.id === selectedDiff) ?? TREAT_DIFFICULTIES[0]
     const stepMs = 45
     let spawnAcc = 0
 
@@ -156,7 +264,7 @@ export function CatchTreats({
               ])
             }
             window.setTimeout(() => {
-              setPops((p) => p.filter((x) => x.id !== popId))
+              setPops((p) => prevPopFilter(p, popId))
             }, 750)
             continue
           }
@@ -166,9 +274,9 @@ export function CatchTreats({
           }
         }
 
-        if (spawnAcc >= 900 && remaining.length < 6) {
+        if (spawnAcc >= diffMeta.spawnMs && remaining.length < diffMeta.maxCount) {
           spawnAcc = 0
-          remaining.push(createFallingItem(nextIdRef.current++))
+          remaining.push(createFallingItem(nextIdRef.current++, diffMeta.speedMult))
         }
 
         return remaining
@@ -176,7 +284,7 @@ export function CatchTreats({
     }, stepMs)
 
     return () => window.clearInterval(loop)
-  }, [finished, onCatchSound, onGiggleSound])
+  }, [phase, selectedDiff, onCatchSound, onGiggleSound])
 
   const moveFromClientX = (clientX: number) => {
     const rect = stageRef.current?.getBoundingClientRect()
@@ -185,10 +293,38 @@ export function CatchTreats({
     updateCatX(pct)
   }
 
+  const area = TREAT_AREAS.find((a) => a.id === selectedAreaId) ?? TREAT_AREAS[0]
+  const diffMeta = TREAT_DIFFICULTIES.find((d) => d.id === selectedDiff) ?? TREAT_DIFFICULTIES[0]
+
+  if (phase === 'setup') {
+    return (
+      <MiniGameSetupModal
+        rootId="game-catch-treats"
+        title="Catch Treats!"
+        subtitle={`Pick a difficulty and snack spot for ${catName}!`}
+        accentBorder="#FBBF24"
+        iconBg="#FEF3C7"
+        iconBorder="#F59E0B"
+        icon={<FoodIcon foodId="treat" className="w-7 h-7" />}
+        difficulties={TREAT_DIFFICULTIES}
+        selectedDiff={selectedDiff}
+        beatenDifficulties={beatenDifficulties}
+        onSelectDiff={setSelectedDiff}
+        areas={TREAT_AREAS}
+        onStartArea={startRound}
+        onExit={onExit}
+        onButtonSound={onButtonSound}
+      />
+    )
+  }
+
   return (
     <div
       id="game-catch-treats"
-      className="fixed inset-0 z-40 app-shell bg-gradient-to-b from-[#FFF7E6] via-[#FFECD0] to-[#F4D2A4]"
+      className="fixed inset-0 z-40 app-shell"
+      style={{
+        background: `linear-gradient(180deg, ${area.skyTop} 0%, ${area.skyBottom} 100%)`,
+      }}
     >
       {/* Top Game HUD */}
       <header className="relative z-20 px-4 pt-3 pb-2 flex items-center justify-between gap-3 shrink-0">
@@ -289,7 +425,10 @@ export function CatchTreats({
         ))}
 
         {/* Floor */}
-        <div className="pointer-events-none absolute bottom-0 inset-x-0 h-20 bg-[#D9A773] border-t-4 border-[#B9854E]" />
+        <div
+          className="pointer-events-none absolute bottom-0 inset-x-0 h-20 border-t-4 border-[#B9854E]"
+          style={{ backgroundColor: area.groundColor }}
+        />
 
         {/* Player-controlled Kitty */}
         <div
@@ -310,19 +449,23 @@ export function CatchTreats({
         </div>
       </div>
 
-      {finished && (
+      {phase === 'finished' && (
         <MiniGameResultCard
-          gameTitle="Catch Treats"
+          gameTitle={`Catch Treats (${diffMeta.label})`}
           score={score}
           catName={catName}
           coat={coat}
           stage={stage}
           equippedAccessory={equippedAccessory}
           catStyle={catStyle}
-          onPlayAgain={restart}
+          onPlayAgain={() => setPhase('setup')}
           onBackHome={onExit}
         />
       )}
     </div>
   )
+}
+
+function prevPopFilter(list: CatchPop[], removeId: number): CatchPop[] {
+  return list.filter((x) => x.id !== removeId)
 }

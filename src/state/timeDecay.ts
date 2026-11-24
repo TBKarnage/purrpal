@@ -1,6 +1,7 @@
 import type {
   CatMood,
   GameState,
+  GrowthStage,
   MessType,
   RoomMess,
   StatDecayCarry,
@@ -12,7 +13,18 @@ export const STAT_MAX = 100
 export const MAX_MESSES = 3
 
 // Real-time synced cozy decay rates (noticeable while active & backgrounded, floored gently at 25%)
-export const HUNGER_DECAY_PER_HOUR = 20 // ~1% every 3 minutes
+export const HUNGER_DECAY_PER_HOUR = 30 // base kitten rate (~1% every 2 minutes)
+export const HUNGER_DECAY_BY_STAGE: Record<GrowthStage, number> = {
+  kitten: 30, // ~1% every 2m
+  junior: 38, // ~1% every 1m 35s
+  teen: 46, // ~1% every 1m 18s
+  adult: 55, // ~1% every 1m 5s
+}
+
+export function getHungerDecayPerHour(stage: GrowthStage): number {
+  return HUNGER_DECAY_BY_STAGE[stage] ?? HUNGER_DECAY_PER_HOUR
+}
+
 export const CLEANLINESS_DECAY_PER_HOUR = 12 // ~1% every 5 minutes
 export const CLEANLINESS_MESS_PENALTY = 8 // immediate cleanliness dip on mess spawn
 export const CLEANLINESS_MESS_DECAY_PER_HOUR = 12 // extra per active mess per hour
@@ -112,7 +124,8 @@ export function applyElapsedTime(state: GameState, now: number): GameState {
 
   // Exact continuous stat decay with fractional carry
   const activeMessCount = updatedMesses.length
-  const rawHungerLoss = carry.hunger + HUNGER_DECAY_PER_HOUR * elapsedHours
+  const hungerDecayRate = getHungerDecayPerHour(state.cat.stage)
+  const rawHungerLoss = carry.hunger + hungerDecayRate * elapsedHours
   const rawHappinessLoss = carry.happiness + HAPPINESS_DECAY_PER_HOUR * elapsedHours
   const rawCleanLoss =
     carry.cleanliness +

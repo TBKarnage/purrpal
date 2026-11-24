@@ -112,7 +112,7 @@ export function FeedDrawer({ gameState, onFeed, onClose }: FeedDrawerProps) {
             </button>
           </div>
 
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
             {FOOD_CATALOG.map((food) => {
               const locked = food.unlockLevel > cat.level
               const owned = inventory.treats[food.id] ?? 0

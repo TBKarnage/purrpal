@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from 'react'
 import { xpRequiredForLevel } from '../state/gameReducer'
 import { STAGE_META, type GameState } from '../types/game'
 import {
@@ -14,69 +13,14 @@ interface StatusHudProps {
   onOpenParentCorner: () => void
 }
 
-const HOLD_DURATION_MS = 3000
-
-export function StatusHud({ gameState, onOpenParentCorner }: StatusHudProps) {
+export function StatusHud({
+  gameState,
+  onOpenParentCorner,
+}: StatusHudProps) {
   const { cat, stats, inventory } = gameState
   const stageMeta = STAGE_META[cat.stage]
   const xpNeeded = xpRequiredForLevel(cat.level)
   const xpPercent = Math.min(100, Math.round((cat.xp / xpNeeded) * 100))
-
-  // 3-second continuous press-and-hold gear ring for Parent Corner
-  const [holdProgress, setHoldProgress] = useState(0)
-  const [showHoldHint, setShowHoldHint] = useState(false)
-  const holdRafRef = useRef<number | null>(null)
-  const holdStartRef = useRef<number | null>(null)
-  const hintTimerRef = useRef<number | null>(null)
-
-  const cancelHold = (showShortTapHint = false) => {
-    if (holdRafRef.current !== null) {
-      cancelAnimationFrame(holdRafRef.current)
-      holdRafRef.current = null
-    }
-    const elapsed = holdStartRef.current ? performance.now() - holdStartRef.current : 0
-    holdStartRef.current = null
-    setHoldProgress(0)
-
-    if (showShortTapHint && elapsed > 0 && elapsed < HOLD_DURATION_MS) {
-      setShowHoldHint(true)
-      if (hintTimerRef.current !== null) window.clearTimeout(hintTimerRef.current)
-      hintTimerRef.current = window.setTimeout(() => setShowHoldHint(false), 1800)
-    }
-  }
-
-  const startHold = () => {
-    cancelHold(false)
-    setShowHoldHint(false)
-    holdStartRef.current = performance.now()
-
-    const tick = (now: number) => {
-      if (holdStartRef.current === null) return
-      const elapsed = now - holdStartRef.current
-      const pct = Math.min(1, elapsed / HOLD_DURATION_MS)
-      setHoldProgress(pct)
-      if (pct >= 1) {
-        holdStartRef.current = null
-        holdRafRef.current = null
-        setHoldProgress(0)
-        onOpenParentCorner()
-        return
-      }
-      holdRafRef.current = requestAnimationFrame(tick)
-    }
-    holdRafRef.current = requestAnimationFrame(tick)
-  }
-
-  useEffect(() => {
-    return () => {
-      if (holdRafRef.current !== null) cancelAnimationFrame(holdRafRef.current)
-      if (hintTimerRef.current !== null) window.clearTimeout(hintTimerRef.current)
-    }
-  }, [])
-
-  const ringRadius = 19
-  const ringCircumference = 2 * Math.PI * ringRadius
-  const ringOffset = ringCircumference * (1 - holdProgress)
 
   return (
     <header
@@ -153,7 +97,7 @@ export function StatusHud({ gameState, onOpenParentCorner }: StatusHudProps) {
           />
         </div>
 
-        {/* Paw Coins + Hold-to-Open Parent Corner Gear */}
+        {/* Paw Coins + Settings Gear */}
         <div className="flex items-center gap-1.5 sm:gap-2 order-2 md:order-3 shrink-0">
           <div
             id="hud-coins"
@@ -166,47 +110,16 @@ export function StatusHud({ gameState, onOpenParentCorner }: StatusHudProps) {
             </span>
           </div>
 
-          <div className="relative">
-            <button
-              id="btn-parent-corner"
-              type="button"
-              aria-label="Parent Corner — hold 3 seconds to open"
-              onPointerDown={(e) => {
-                e.currentTarget.setPointerCapture?.(e.pointerId)
-                startHold()
-              }}
-              onPointerUp={() => cancelHold(true)}
-              onPointerCancel={() => cancelHold(false)}
-              onPointerLeave={() => cancelHold(false)}
-              className="relative w-12 h-12 rounded-2xl bg-[#FFF6E5] border-2 border-[#DEC098] text-[#8A6552] flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
-            >
-              <svg
-                viewBox="0 0 44 44"
-                className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none"
-                aria-hidden="true"
-              >
-                <circle
-                  cx="22"
-                  cy="22"
-                  r={ringRadius}
-                  fill="none"
-                  stroke="#F59E0B"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeDasharray={ringCircumference}
-                  strokeDashoffset={ringOffset}
-                  opacity={holdProgress > 0 ? 1 : 0}
-                />
-              </svg>
-              <GearIcon className="w-6 h-6" />
-            </button>
-
-            {showHoldHint && (
-              <div className="absolute right-0 top-14 z-50 whitespace-nowrap rounded-xl bg-[#5B3A29] text-[#FFFDF8] text-xs font-extrabold px-3 py-1.5 shadow-lg">
-                Hold 3s for Parents
-              </div>
-            )}
-          </div>
+          <button
+            id="btn-parent-corner"
+            type="button"
+            onClick={onOpenParentCorner}
+            aria-label="Settings"
+            title="Settings"
+            className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-[#FFF6E5] border-2 border-[#DEC098] text-[#8A6552] flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
+          >
+            <GearIcon className="w-6 h-6" />
+          </button>
         </div>
       </div>
     </header>

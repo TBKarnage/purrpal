@@ -44,7 +44,15 @@ export function DressUpModal({
 }: DressUpModalProps) {
   const { cat, room, inventory } = gameState
   const [activeTab, setActiveTab] = useState<BoutiqueTab>('customize')
+  const [previewAccId, setPreviewAccId] = useState<string | null>(null)
   const style = resolveCatStyle(cat)
+
+  const previewItem = previewAccId
+    ? ACCESSORY_CATALOG.find((a) => a.id === previewAccId) ?? null
+    : null
+  const displayStyle = previewItem
+    ? { ...style, [previewItem.slot]: previewItem.id }
+    : style
 
   const unlockedNeck = ACCESSORY_CATALOG.filter(
     (a) => a.slot === 'neck' && inventory.unlockedAccessories.includes(a.id),
@@ -94,7 +102,7 @@ export function DressUpModal({
               mood="thriving"
               animation="idle"
               equippedAccessory={cat.equippedAccessory}
-              style={style}
+              style={displayStyle}
               showThoughtBubble={false}
               className="w-24 h-24 sm:w-32 sm:h-32 md:w-48 md:h-48 shrink-0"
             />
@@ -103,15 +111,34 @@ export function DressUpModal({
                 Lv {cat.level} · {STAGE_META[cat.stage].label}
               </span>
 
-              {(style.neck || style.eyes || style.head) && (
-                <button
-                  id="btn-clear-accessories"
-                  type="button"
-                  onClick={() => onEquipAccessory(null)}
-                  className="cozy-btn px-3 py-1 rounded-xl bg-[#FFFDF8] border-2 border-[#E5C9A3] text-xs font-black text-[#8A6552]"
-                >
-                  Take Off All
-                </button>
+              {previewItem ? (
+                <div className="flex flex-col items-end md:items-center gap-1">
+                  <span
+                    id="style-preview-badge"
+                    className="px-2.5 py-0.5 rounded-full bg-[#FEF3C7] border border-[#F59E0B] text-[11px] font-black text-[#92400E] text-center"
+                  >
+                    Preview: {previewItem.label} (Lv {previewItem.unlockLevel})
+                  </span>
+                  <button
+                    id="btn-clear-preview"
+                    type="button"
+                    onClick={() => setPreviewAccId(null)}
+                    className="cozy-btn px-3 py-1 rounded-xl bg-[#FFFDF8] border-2 border-[#F59E0B] text-xs font-black text-[#92400E]"
+                  >
+                    Stop Preview
+                  </button>
+                </div>
+              ) : (
+                (style.neck || style.eyes || style.head) && (
+                  <button
+                    id="btn-clear-accessories"
+                    type="button"
+                    onClick={() => onEquipAccessory(null)}
+                    className="cozy-btn px-3 py-1 rounded-xl bg-[#FFFDF8] border-2 border-[#E5C9A3] text-xs font-black text-[#8A6552]"
+                  >
+                    Take Off All
+                  </button>
+                )
               )}
             </div>
           </div>
@@ -534,22 +561,35 @@ export function DressUpModal({
                         )}
                       </div>
 
-                      {/* Preview strip of the options inside this category */}
+                      {/* Clickable preview strip — tap any item to try it on! */}
                       <div className="flex flex-wrap items-center gap-1.5">
                         {category.id === 'free_basics' && (
                           <span className="px-2.5 py-1 rounded-xl bg-[#FFF6E5] border border-[#E6C79C] text-[11px] font-extrabold text-[#7D563E]">
                             5 Eye Colors · 4 Cheeks · 3 Rugs
                           </span>
                         )}
-                        {accPreviews.slice(0, 6).map((a) => (
-                          <span
-                            key={a.id}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-xl bg-[#FFF9F0] border border-[#E7CFAF] text-[11px] font-extrabold text-[#5B3A29]"
-                          >
-                            <AccessoryPreviewIcon id={a.id} className="w-5 h-5" />
-                            <span>{a.label}</span>
-                          </span>
-                        ))}
+                        {accPreviews.map((a) => {
+                          const isPreviewing = previewAccId === a.id
+                          return (
+                            <button
+                              key={a.id}
+                              id={`preview-acc-${a.id}`}
+                              type="button"
+                              onClick={() =>
+                                setPreviewAccId((cur) => (cur === a.id ? null : a.id))
+                              }
+                              aria-pressed={isPreviewing}
+                              className={`cozy-btn inline-flex items-center gap-1 px-2.5 py-1 rounded-xl border-2 text-[11px] font-extrabold ${
+                                isPreviewing
+                                  ? 'bg-[#EDE9FE] border-[#8B5CF6] text-[#5B21B6] shadow-sm'
+                                  : 'bg-[#FFF9F0] border-[#E7CFAF] text-[#5B3A29]'
+                              }`}
+                            >
+                              <AccessoryPreviewIcon id={a.id} className="w-5 h-5" />
+                              <span>{a.label}</span>
+                            </button>
+                          )
+                        })}
                         {decPreviews.map((d) => (
                           <span
                             key={d.id}

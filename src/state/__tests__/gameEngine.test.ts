@@ -19,6 +19,7 @@ import {
   STAT_FLOOR,
   applyElapsedTime,
   getCatMood,
+  getHungerDecayPerHour,
   getPriorityNeed,
 } from '../timeDecay'
 
@@ -117,8 +118,8 @@ describe('PurrPal Save State Engine & Cozy Offline Catch-Up', () => {
     expect(stepped.stats.hunger).toBe(jumped.stats.hunger)
     expect(stepped.stats.cleanliness).toBe(jumped.stats.cleanliness)
     expect(stepped.stats.happiness).toBe(jumped.stats.happiness)
-    // 15 minutes at 20/hr hunger = -5 points (80 -> 75)
-    expect(jumped.stats.hunger).toBe(75)
+    // 15 minutes at 30/hr kitten hunger = -7.5 points (80 -> 73)
+    expect(jumped.stats.hunger).toBe(73)
     // 15 minutes at 12/hr clean = -3 points (88 -> 85)
     expect(jumped.stats.cleanliness).toBe(85)
   })
@@ -158,22 +159,26 @@ describe('PurrPal Save State Engine & Cozy Offline Catch-Up', () => {
     expect(afterClean.inventory.coins).toBe(coinsBefore + 5)
   })
 
-  it('refuses feeding and awards 0 XP when stats are already at 100%', () => {
+  it('stops regular food at 100% hunger while treats still work with coin cost and tiny XP', () => {
     const base = createInitialGameState('Mochi', 'tabby', 10_000)
     const fullState = {
       ...base,
       stats: { hunger: 100, cleanliness: 100, happiness: 100 },
     }
 
-    // Feeding at 100% hunger does not spend treats/coins or award XP
+    // Regular food (kibble) stops at 100% hunger and awards 0 XP
     const afterKibble = reduceGameState(fullState, { type: 'FEED', foodId: 'kibble', now: 11_000 })
     expect(afterKibble.state).toBe(fullState)
     expect(afterKibble.state.cat.xp).toBe(0)
 
+    // Paid treats still work at 100% hunger, consume treat/coins, and award 2 tiny XP
     const afterMilk = reduceGameState(fullState, { type: 'FEED', foodId: 'milk', now: 12_000 })
-    expect(afterMilk.state).toBe(fullState)
-    expect(afterMilk.state.inventory.treats.milk).toBe(1)
-    expect(afterMilk.state.inventory.coins).toBe(base.inventory.coins)
+    expect(afterMilk.state.inventory.treats.milk).toBe(0)
+    expect(afterMilk.state.cat.xp).toBe(2)
+
+    const afterCatnip = reduceGameState(afterMilk.state, { type: 'FEED', foodId: 'catnip', now: 12_500 })
+    expect(afterCatnip.state.inventory.coins).toBe(base.inventory.coins - 12)
+    expect(afterCatnip.state.cat.xp).toBe(4)
 
     // Brushing at 100% cleanliness awards 0 XP
     const afterBrush = reduceGameState(fullState, { type: 'BRUSH_CAT', now: 13_000 })
@@ -186,6 +191,20 @@ describe('PurrPal Save State Engine & Cozy Offline Catch-Up', () => {
       { type: 'PET_CAT', awardRewards: true, now: 14_000 },
     )
     expect(afterPet.state.cat.xp).toBe(0)
+  })
+
+  it('drains hunger faster as the kitty grows older', () => {
+    expect(getHungerDecayPerHour('kitten')).toBeLessThan(getHungerDecayPerHour('junior'))
+    expect(getHungerDecayPerHour('junior')).toBeLessThan(getHungerDecayPerHour('teen'))
+    expect(getHungerDecayPerHour('teen')).toBeLessThan(getHungerDecayPerHour('adult'))
+
+    const kitten = createInitialGameState('Mochi', 'tabby', 0)
+    const adult = { ...kitten, cat: { ...kitten.cat, stage: 'adult' as const, level: 13 } }
+    const oneHour = 3_600_000
+
+    const kittenAfter = applyElapsedTime(kitten, oneHour)
+    const adultAfter = applyElapsedTime(adult, oneHour)
+    expect(adultAfter.stats.hunger).toBeLessThan(kittenAfter.stats.hunger)
   })
 
   it('always rewards mini-games positively even with score 0', () => {
@@ -270,10 +289,10 @@ describe('PurrPal Save State Engine & Cozy Offline Catch-Up', () => {
     const start = createInitialGameState('Mochi', 'gray', 30_000)
     expect(start.hideSeekBeaten ?? []).toEqual([])
     expect(isHideSeekDifficultyUnlocked(start.hideSeekBeaten, 'easy')).toBe(true)
-    expect(isHideSeekDifficultyUnlocked(start.hideSeekBeaten, 'medium')).toBe(false)
-    expect(isHideSeekDifficultyUnlocked(start.hideSeekBeaten, 'hard')).toBe(false)
+    expect(isHideSeekDifficultyUnlocked(start.hideSeekBeaten, 'medium')).toBe(true)
+    expect(isHideSeekDifficultyUnlocked(start.hideSeekBeaten, 'hard')).toBe(true)
 
-    // Beating Easy unlocks Medium, keeps Hard locked
+    // Beating Easy records beaten difficulty
     const afterEasy = reduceGameState(start, {
       type: 'COMPLETE_MINIGAME',
       gameId: 'hide_seek',
@@ -282,8 +301,6 @@ describe('PurrPal Save State Engine & Cozy Offline Catch-Up', () => {
       now: 35_000,
     }).state
     expect(afterEasy.hideSeekBeaten).toEqual(['easy'])
-    expect(isHideSeekDifficultyUnlocked(afterEasy.hideSeekBeaten, 'medium')).toBe(true)
-    expect(isHideSeekDifficultyUnlocked(afterEasy.hideSeekBeaten, 'hard')).toBe(false)
 
     // Re-beating Easy does not duplicate entries
     const afterEasyAgain = reduceGameState(afterEasy, {
@@ -295,7 +312,7 @@ describe('PurrPal Save State Engine & Cozy Offline Catch-Up', () => {
     }).state
     expect(afterEasyAgain.hideSeekBeaten).toEqual(['easy'])
 
-    // Beating Medium unlocks Hard
+    // Beating Medium records medium
     const afterMedium = reduceGameState(afterEasyAgain, {
       type: 'COMPLETE_MINIGAME',
       gameId: 'hide_seek',
@@ -304,7 +321,6 @@ describe('PurrPal Save State Engine & Cozy Offline Catch-Up', () => {
       now: 40_000,
     }).state
     expect(afterMedium.hideSeekBeaten).toEqual(['easy', 'medium'])
-    expect(isHideSeekDifficultyUnlocked(afterMedium.hideSeekBeaten, 'hard')).toBe(true)
 
     // Beating Hard records all three
     const afterHard = reduceGameState(afterMedium, {
@@ -319,7 +335,6 @@ describe('PurrPal Save State Engine & Cozy Offline Catch-Up', () => {
     // Round-trip save code & validation preserve hideSeekBeaten
     const restored = decodeSaveCode(encodeSaveCode(afterMedium))
     expect(restored?.hideSeekBeaten).toEqual(['easy', 'medium'])
-    expect(isHideSeekDifficultyUnlocked(restored?.hideSeekBeaten, 'hard')).toBe(true)
 
     // Hint shake delay always falls strictly between 50s and 60s
     for (let i = 0; i < 50; i += 1) {
@@ -328,5 +343,52 @@ describe('PurrPal Save State Engine & Cozy Offline Catch-Up', () => {
       expect(delay).toBeLessThanOrEqual(60_000)
     }
   })
+
+  it('tracks per-game difficulty unlocks and persists bug/request feedback reports', () => {
+    let state = createInitialGameState('Luna', 'tuxedo', 50_000)
+    state = reduceGameState(state, {
+      type: 'COMPLETE_MINIGAME',
+      gameId: 'sky_hop',
+      score: 12,
+      difficulty: 'easy',
+      now: 51_000,
+    }).state
+    state = reduceGameState(state, {
+      type: 'COMPLETE_MINIGAME',
+      gameId: 'laser',
+      score: 8,
+      difficulty: 'easy',
+      now: 52_000,
+    }).state
+
+    expect(state.miniGameBeaten?.sky_hop).toEqual(['easy'])
+    expect(state.miniGameBeaten?.laser).toEqual(['easy'])
+    expect(isHideSeekDifficultyUnlocked(state.miniGameBeaten?.sky_hop, 'medium')).toBe(true)
+    expect(isHideSeekDifficultyUnlocked(state.miniGameBeaten?.sky_hop, 'hard')).toBe(true)
+
+    state = reduceGameState(state, {
+      type: 'ADD_FEEDBACK_REPORT',
+      report: {
+        id: 'fb_test_1',
+        kind: 'bug',
+        createdAt: 53_000,
+        catName: 'Luna',
+        catLevel: state.cat.level,
+        activity: 'feeding',
+        symptom: 'wrong_color',
+        message: 'Face looked dark after eating',
+      },
+      now: 53_000,
+    }).state
+
+    const restored = decodeSaveCode(encodeSaveCode(state))
+    expect(restored?.miniGameBeaten?.sky_hop).toEqual(['easy'])
+    expect(restored?.feedbackReports?.length).toBe(1)
+    expect(restored?.feedbackReports?.[0].symptom).toBe('wrong_color')
+
+    const cleared = reduceGameState(state, { type: 'CLEAR_FEEDBACK_REPORTS', now: 54_000 }).state
+    expect(cleared.feedbackReports).toEqual([])
+  })
 })
+
 

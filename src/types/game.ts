@@ -8,11 +8,25 @@ export type CatMood = 'thriving' | 'normal' | 'needsCare' | 'sad'
 
 export type StatKey = 'hunger' | 'cleanliness' | 'happiness'
 
-export type MiniGameId = 'laser' | 'hide_seek' | 'bubbles' | 'treats'
+export type MiniGameId = 'laser' | 'hide_seek' | 'sky_hop' | 'bubbles' | 'treats'
 
-export type HideSeekDifficulty = 'easy' | 'medium' | 'hard'
+export type MiniGameDifficulty = 'easy' | 'medium' | 'hard'
+export type HideSeekDifficulty = MiniGameDifficulty
 
 export type HideSeekRoomId = 'living_room' | 'kitchen' | 'bedroom' | 'garden'
+
+export interface FeedbackReport {
+  id: string
+  kind: 'bug' | 'request'
+  createdAt: number
+  catName: string
+  catLevel: number
+  activity?: string
+  symptom?: string
+  message: string
+  usedVoice?: boolean
+  sentToWebhook?: boolean
+}
 
 export type AccessorySlot = 'neck' | 'head' | 'eyes'
 
@@ -79,10 +93,15 @@ export interface GameState {
   settings: {
     soundEnabled: boolean
     unlockAllMiniGames: boolean
+    parentWebhookUrl?: string
+    parentEmail?: string
+    parentPin?: string
   }
   tutorialStep?: number // 0: Feed, 1: Pet, 2: Play, 3: Complete
   feedsSinceMess?: number
   hideSeekBeaten?: HideSeekDifficulty[]
+  miniGameBeaten?: Partial<Record<MiniGameId, MiniGameDifficulty[]>>
+  feedbackReports?: FeedbackReport[]
 }
 
 export interface LevelUpEvent {
@@ -100,7 +119,7 @@ export interface LevelUpEvent {
 }
 
 export interface FoodItem {
-  id: 'kibble' | 'milk' | 'treat' | 'salmon'
+  id: 'kibble' | 'milk' | 'treat' | 'salmon' | 'catnip'
   label: string
   cost: number
   hungerGain: number
@@ -399,6 +418,15 @@ export const FOOD_CATALOG: FoodItem[] = [
     xpGain: 12,
     unlockLevel: 4,
   },
+  {
+    id: 'catnip',
+    label: 'Catnip',
+    cost: 12,
+    hungerGain: 5,
+    happinessGain: 28,
+    xpGain: 14,
+    unlockLevel: 1,
+  },
 ]
 
 export const ACCESSORY_CATALOG: AccessoryItem[] = [
@@ -457,6 +485,13 @@ export const MINIGAME_CATALOG: MiniGameInfo[] = [
     shortHint: 'Find kitty hiding in a room!',
     unlockLevel: 1,
     accent: '#10B981',
+  },
+  {
+    id: 'sky_hop',
+    label: 'Sky Hop',
+    shortHint: 'Bounce up to the clouds!',
+    unlockLevel: 1,
+    accent: '#8B5CF6',
   },
   {
     id: 'bubbles',
