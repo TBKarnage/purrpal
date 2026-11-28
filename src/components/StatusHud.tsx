@@ -1,5 +1,6 @@
 import { xpRequiredForLevel } from '../state/gameReducer'
 import { STAGE_META, type GameState } from '../types/game'
+import { HubBackButton } from './HubBackButton'
 import {
   FishBowlIcon,
   GearIcon,
@@ -28,8 +29,9 @@ export function StatusHud({
       className="relative z-30 w-full px-2.5 sm:px-5 pt-2 sm:pt-3 pb-1 shrink-0"
     >
       <div className="mx-auto max-w-5xl rounded-[1.5rem] sm:rounded-[1.75rem] bg-[#FFFDF8]/92 backdrop-blur-md border-[3px] border-[#E7C9A4] shadow-[0_8px_20px_rgba(91,58,41,0.1)] px-2.5 sm:px-4 py-1.5 sm:py-2 flex flex-wrap md:flex-nowrap items-center justify-between gap-x-2 gap-y-1.5 sm:gap-2.5">
-        {/* Cat Name + Level & XP */}
-        <div className="flex items-center gap-2 min-w-0 shrink-0">
+        {/* Back to Hub + Cat Name + Level & XP */}
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink-0">
+          <HubBackButton />
           <div
             id="hud-level-badge"
             className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl border-[3px] border-[#5B3A29] flex flex-col items-center justify-center leading-none shadow-sm shrink-0"

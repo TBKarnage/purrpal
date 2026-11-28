@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { COAT_OPTIONS, pickRandomCatNames, type CoatStyle } from '../types/game'
 import { CatSprite } from './CatSprite'
+import { HubBackButton } from './HubBackButton'
 import { HeartIcon, ShuffleDiceIcon, SparklesIcon } from './Icons'
 
 interface OnboardingScreenProps {
@@ -54,6 +55,11 @@ export function OnboardingScreen({ onComplete, onInteract }: OnboardingScreenPro
       id="onboarding-screen"
       className="app-shell bg-gradient-to-b from-[#FFF6E5] via-[#FFECD0] to-[#F7D7B2] items-center justify-center p-4 sm:p-6"
     >
+      {/* Top-left Back to Hub button */}
+      <div className="absolute top-3 left-3 sm:top-5 sm:left-5 z-20 pt-[env(safe-area-inset-top,0px)] pl-[env(safe-area-inset-left,0px)]">
+        <HubBackButton />
+      </div>
+
       {/* Decorative soft sunlight glow */}
       <div
         className="pointer-events-none fixed inset-0 opacity-60"
